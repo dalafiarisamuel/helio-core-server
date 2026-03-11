@@ -1,0 +1,60 @@
+### Health
+GET http://localhost:8080/health
+
+### Solar potential - Lagos, Nigeria (PVWatts)
+GET http://localhost:8080/solar/potential?lat=6.5244&lon=3.3792&tilt=20&azimuth=180
+
+### Solar estimate - Lagos, Nigeria (uses PVWatts internally)
+POST http://localhost:8080/solar/estimate
+Content-Type: application/json
+
+{
+  "latitude": 6.5244,
+  "longitude": 3.3792,
+  "panel_wattage": 450,
+  "panel_count": 12
+}
+
+### Solar potential - Port Harcourt, Rivers State (PVWatts)
+GET http://localhost:8080/solar/potential?lat=4.8156&lon=7.0498&tilt=20&azimuth=180
+
+### Solar estimate - Port Harcourt, Rivers State (uses PVWatts internally)
+POST http://localhost:8080/solar/estimate
+Content-Type: application/json
+
+{
+  "latitude": 4.8156,
+  "longitude": 7.0498,
+  "panel_wattage": 450,
+  "panel_count": 12
+}
+
+### Solar potential - Benin City, Edo State (PVWatts)
+GET http://localhost:8080/solar/potential?lat=6.3350&lon=5.6037&tilt=20&azimuth=180
+
+### Solar estimate - Benin City, Edo State (uses PVWatts internally)
+POST http://localhost:8080/solar/estimate
+Content-Type: application/json
+
+{
+  "latitude": 6.3350,
+  "longitude": 5.6037,
+  "panel_wattage": 550,
+  "panel_count": 4
+}
+
+### Solar potential - London, UK (lower solar resource example)
+GET http://localhost:8080/solar/potential?lat=51.5074&lon=-0.1278&tilt=35&azimuth=180
+
+### Solar estimate - London, UK (lower solar resource example)
+POST http://localhost:8080/solar/estimate
+Content-Type: application/json
+
+{
+  "latitude": 51.5074,
+  "longitude": -0.1278,
+  "panel_wattage": 400,
+  "panel_count": 8,
+  "panel_tilt": 35,
+  "azimuth": 180
+}

@@ -16,6 +16,8 @@ import kotlinx.serialization.SerialName
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
+import kotlin.math.pow
+import kotlin.math.round
 import org.slf4j.LoggerFactory
 
 
@@ -63,7 +65,7 @@ class OpenMeteoForecastClient(
             SolarForecastEntry(
                 date = date.format(DateTimeFormatter.ISO_DATE),
                 peakSunHours = MeasuredValue(peakSunHours, "hours"),
-                expectedEnergy = MeasuredValue(expectedEnergy, "kWh"),
+                expectedEnergy = MeasuredValue(roundToDecimals(expectedEnergy, 3), "kWh"),
                 peakIrradianceTime = peakTimeIso,
                 peakIrradiance = MeasuredValue(peakIrradiance, "Wh/m²"),
                 sunWindowStart = windowStart,
@@ -88,6 +90,11 @@ class OpenMeteoForecastClient(
 
     private fun parseDate(isoTime: String): LocalDate =
         LocalDateTime.parse(isoTime).toLocalDate()
+
+    private fun roundToDecimals(value: Double, decimals: Int): Double {
+        val factor = 10.0.pow(decimals)
+        return round(value * factor) / factor
+    }
 }
 
 @Serializable

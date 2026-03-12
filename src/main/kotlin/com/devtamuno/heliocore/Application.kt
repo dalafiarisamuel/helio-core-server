@@ -1,19 +1,15 @@
 package com.devtamuno.heliocore
 
 import com.devtamuno.heliocore.config.AppConfig
+import com.devtamuno.heliocore.config.buildAppModules
 import com.devtamuno.heliocore.domain.ErrorResponse
 import com.devtamuno.heliocore.domain.ExternalServiceException
 import com.devtamuno.heliocore.domain.ValidationException
-import com.devtamuno.heliocore.integrations.pvwatts.PvWattsClient
-import com.devtamuno.heliocore.integrations.forecast.OpenMeteoForecastClient
+import com.devtamuno.heliocore.integrations.common.SolarDataProvider
+import com.devtamuno.heliocore.integrations.common.SolarForecastProvider
 import com.devtamuno.heliocore.routes.configureRoutes
 import com.devtamuno.heliocore.services.SolarProductionCalculator
 import io.ktor.client.HttpClient
-import io.ktor.client.engine.cio.CIO
-import io.ktor.client.plugins.contentnegotiation.ContentNegotiation as ClientContentNegotiation
-import io.ktor.client.plugins.HttpTimeout
-import io.ktor.client.plugins.logging.LogLevel
-import io.ktor.client.plugins.logging.Logging
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpMethod
 import io.ktor.serialization.kotlinx.json.json
@@ -23,16 +19,16 @@ import io.ktor.server.plugins.contentnegotiation.*
 import io.ktor.server.plugins.cors.routing.*
 import io.ktor.server.plugins.ratelimit.*
 import io.ktor.server.plugins.statuspages.*
-import io.ktor.server.response.*
 import io.ktor.server.request.path
+import io.ktor.server.response.*
 import kotlinx.serialization.json.Json
+import org.koin.ktor.ext.getKoin
+import org.koin.ktor.ext.inject
+import org.koin.ktor.plugin.Koin
 import org.slf4j.event.Level
 import kotlin.time.Duration.Companion.seconds
-import com.devtamuno.heliocore.integrations.common.CachingSolarDataProvider
-import com.devtamuno.heliocore.integrations.common.CachingSolarForecastProvider
-import com.devtamuno.heliocore.integrations.common.RedisFactory
-import com.devtamuno.heliocore.integrations.common.SolarDataProvider
-import com.devtamuno.heliocore.integrations.common.SolarForecastProvider
+import io.lettuce.core.api.StatefulRedisConnection
+import org.koin.logger.slf4jLogger
 
 fun main(args: Array<String>) {
     io.ktor.server.netty.EngineMain.main(args)
@@ -41,30 +37,21 @@ fun main(args: Array<String>) {
 @Suppress("unused")
 fun Application.module() {
     val appConfig = AppConfig.fromConfig(environment.config)
-    val json = Json { ignoreUnknownKeys = true; prettyPrint = false }
-
-    val httpClient = HttpClient(CIO) {
-        expectSuccess = false
-        install(HttpTimeout) {
-            requestTimeoutMillis = appConfig.httpClientTimeoutMillis
-            connectTimeoutMillis = appConfig.httpClientTimeoutMillis
-            socketTimeoutMillis = appConfig.httpClientTimeoutMillis
-        }
-        install(ClientContentNegotiation) {
-            json(json)
-        }
-        install(Logging) {
-            level = LogLevel.INFO
-            sanitizeHeader { header -> header == HttpHeaders.Authorization }
-        }
+    install(Koin) {
+        slf4jLogger()
+        modules(buildAppModules(appConfig))
     }
 
-    val redisConnection = appConfig.redisUrl?.let {
-        RedisFactory.connect(it, appConfig.redisUsername, appConfig.redisPassword)
-    }
+    val json by inject<Json>()
+    val httpClient by inject<HttpClient>()
+    val calculator by inject<SolarProductionCalculator>()
+    val dataProvider by inject<SolarDataProvider>()
+    val forecastProvider by inject<SolarForecastProvider>()
 
-    monitor.subscribe(ApplicationStopped) { httpClient.close() }
-    monitor.subscribe(ApplicationStopped) { redisConnection?.close() }
+    monitor.subscribe(ApplicationStopped) {
+        httpClient.close()
+        getKoin().getOrNull<StatefulRedisConnection<String, String>>()?.close()
+    }
 
     install(ContentNegotiation) { json(json) }
 
@@ -103,15 +90,5 @@ fun Application.module() {
         }
     }
 
-    val calculator = SolarProductionCalculator()
-    val pvWattsClient = PvWattsClient(appConfig.pvWattsApiKey, httpClient)
-    val forecastProvider: SolarForecastProvider? = OpenMeteoForecastClient(httpClient)
-
-    val dataProviderWrapped: SolarDataProvider =
-        redisConnection?.let { CachingSolarDataProvider(pvWattsClient, it) } ?: pvWattsClient
-
-    val forecastProviderWrapped: SolarForecastProvider? =
-        forecastProvider?.let { fp -> redisConnection?.let { CachingSolarForecastProvider(fp, it) } ?: fp }
-
-    configureRoutes(calculator, dataProviderWrapped, forecastProviderWrapped)
+    configureRoutes(calculator, dataProvider, forecastProvider)
 }

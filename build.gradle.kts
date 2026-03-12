@@ -1,6 +1,7 @@
 val kotlin_version: String by project
 val logback_version: String by project
 val ktor_version: String by project
+val koin_version = "3.5.6"
 
 plugins {
     kotlin("jvm") version "2.3.0"
@@ -36,6 +37,9 @@ dependencies {
     implementation("io.ktor:ktor-client-logging:$ktor_version")
 
     implementation("io.lettuce:lettuce-core:6.3.1.RELEASE")
+
+    implementation("io.insert-koin:koin-ktor:$koin_version")
+    implementation("io.insert-koin:koin-logger-slf4j:$koin_version")
 
     implementation("ch.qos.logback:logback-classic:$logback_version")
 

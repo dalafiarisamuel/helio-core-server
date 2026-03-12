@@ -71,7 +71,7 @@ class OpenMeteoForecastClient(
             )
         }
 
-        return SolarForecastResponse(
+        val responseModel = SolarForecastResponse(
             forecasts = entries,
             panelWattage = request.panelWattage,
             panelCount = request.panelCount
@@ -82,6 +82,8 @@ class OpenMeteoForecastClient(
             entries.size,
             if (entries.isNotEmpty()) entries.map { it.peakSunHours.value }.average() else 0.0
         )
+
+        return responseModel
     }
 
     private fun parseDate(isoTime: String): LocalDate =

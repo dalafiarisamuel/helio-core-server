@@ -6,7 +6,6 @@ import com.devtamuno.heliocore.domain.ExternalServiceException
 import com.devtamuno.heliocore.domain.ValidationException
 import com.devtamuno.heliocore.integrations.pvwatts.PvWattsClient
 import com.devtamuno.heliocore.integrations.forecast.OpenMeteoForecastClient
-import com.devtamuno.heliocore.integrations.common.*
 import com.devtamuno.heliocore.routes.configureRoutes
 import com.devtamuno.heliocore.services.SolarProductionCalculator
 import io.ktor.client.HttpClient
@@ -25,7 +24,6 @@ import io.ktor.server.plugins.cors.routing.*
 import io.ktor.server.plugins.ratelimit.*
 import io.ktor.server.plugins.statuspages.*
 import io.ktor.server.response.*
-import io.ktor.serialization.kotlinx.json.*
 import io.ktor.server.request.path
 import kotlinx.serialization.json.Json
 import org.slf4j.event.Level

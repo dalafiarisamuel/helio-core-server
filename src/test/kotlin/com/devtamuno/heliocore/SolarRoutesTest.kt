@@ -9,7 +9,6 @@ import com.devtamuno.heliocore.routes.configureRoutes
 import com.devtamuno.heliocore.services.SolarProductionCalculator
 import io.ktor.client.call.body
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
-import io.ktor.client.request.get
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.bodyAsText
@@ -127,7 +126,17 @@ class SolarRoutesTest {
         }
 
         val client = createClient { install(ContentNegotiation) { json(json) } }
-        val response = client.get("/solar/potential?lat=1&lon=1")
+        val response = client.post("/solar/potential") {
+            contentType(ContentType.Application.Json)
+            setBody(
+                SolarEstimateRequest(
+                    latitude = 1.0,
+                    longitude = 1.0,
+                    panelWattage = 1000.0,
+                    panelCount = 1
+                )
+            )
+        }
 
         assertEquals(HttpStatusCode.OK, response.status)
         val body: SolarPotentialResponse = response.body()

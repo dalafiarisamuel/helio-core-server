@@ -1,0 +1,14 @@
+version: "3.9"
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: helio-redis
+    ports:
+      - "6379:6379"
+    environment:
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-aGVsaW8tcmVkaXMtZGV2}
+    command: [ "redis-server", "--appendonly", "yes", "--requirepass", "${REDIS_PASSWORD:-aGVsaW8tcmVkaXMtZGV2}" ]
+    volumes:
+      - redis-data:/data
+volumes:
+  redis-data:

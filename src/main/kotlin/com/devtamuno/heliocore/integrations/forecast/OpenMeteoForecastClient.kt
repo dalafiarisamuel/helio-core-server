@@ -16,6 +16,7 @@ import kotlinx.serialization.SerialName
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
+import org.slf4j.LoggerFactory
 
 
 class OpenMeteoForecastClient(
@@ -23,8 +24,10 @@ class OpenMeteoForecastClient(
     private val forecastDays: Int = 7,
     private val defaultLosses: Double = 0.14
 ) : SolarForecastProvider {
+    private val logger = LoggerFactory.getLogger(OpenMeteoForecastClient::class.java)
 
     override suspend fun forecast(request: SolarEstimateRequest): SolarForecastResponse {
+        logger.info("Calling Open-Meteo forecast: lat={}, lon={}, days={}", request.latitude, request.longitude, forecastDays)
         val response = client.get("https://api.open-meteo.com/v1/forecast") {
             parameter("latitude", request.latitude)
             parameter("longitude", request.longitude)
@@ -72,6 +75,12 @@ class OpenMeteoForecastClient(
             forecasts = entries,
             panelWattage = request.panelWattage,
             panelCount = request.panelCount
+        )
+
+        logger.info(
+            "Open-Meteo response processed: days={} peakSunHours(avg)={}",
+            entries.size,
+            if (entries.isNotEmpty()) entries.map { it.peakSunHours.value }.average() else 0.0
         )
     }
 

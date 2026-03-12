@@ -6,7 +6,7 @@ import com.devtamuno.heliocore.domain.ExternalServiceException
 import com.devtamuno.heliocore.domain.ValidationException
 import com.devtamuno.heliocore.integrations.pvwatts.PvWattsClient
 import com.devtamuno.heliocore.integrations.forecast.OpenMeteoForecastClient
-import com.devtamuno.heliocore.integrations.common.SolarForecastProvider
+import com.devtamuno.heliocore.integrations.common.*
 import com.devtamuno.heliocore.routes.configureRoutes
 import com.devtamuno.heliocore.services.SolarProductionCalculator
 import io.ktor.client.HttpClient
@@ -30,6 +30,11 @@ import io.ktor.server.request.path
 import kotlinx.serialization.json.Json
 import org.slf4j.event.Level
 import kotlin.time.Duration.Companion.seconds
+import com.devtamuno.heliocore.integrations.common.CachingSolarDataProvider
+import com.devtamuno.heliocore.integrations.common.CachingSolarForecastProvider
+import com.devtamuno.heliocore.integrations.common.RedisFactory
+import com.devtamuno.heliocore.integrations.common.SolarDataProvider
+import com.devtamuno.heliocore.integrations.common.SolarForecastProvider
 
 fun main(args: Array<String>) {
     io.ktor.server.netty.EngineMain.main(args)
@@ -56,7 +61,12 @@ fun Application.module() {
         }
     }
 
+    val redisConnection = appConfig.redisUrl?.let {
+        RedisFactory.connect(it, appConfig.redisUsername, appConfig.redisPassword)
+    }
+
     monitor.subscribe(ApplicationStopped) { httpClient.close() }
+    monitor.subscribe(ApplicationStopped) { redisConnection?.close() }
 
     install(ContentNegotiation) { json(json) }
 
@@ -99,5 +109,11 @@ fun Application.module() {
     val pvWattsClient = PvWattsClient(appConfig.pvWattsApiKey, httpClient)
     val forecastProvider: SolarForecastProvider? = OpenMeteoForecastClient(httpClient)
 
-    configureRoutes(calculator, pvWattsClient, forecastProvider)
+    val dataProviderWrapped: SolarDataProvider =
+        redisConnection?.let { CachingSolarDataProvider(pvWattsClient, it) } ?: pvWattsClient
+
+    val forecastProviderWrapped: SolarForecastProvider? =
+        forecastProvider?.let { fp -> redisConnection?.let { CachingSolarForecastProvider(fp, it) } ?: fp }
+
+    configureRoutes(calculator, dataProviderWrapped, forecastProviderWrapped)
 }

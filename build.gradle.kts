@@ -35,6 +35,8 @@ dependencies {
     implementation("io.ktor:ktor-client-content-negotiation:$ktor_version")
     implementation("io.ktor:ktor-client-logging:$ktor_version")
 
+    implementation("io.lettuce:lettuce-core:6.3.1.RELEASE")
+
     implementation("ch.qos.logback:logback-classic:$logback_version")
 
     testImplementation("io.ktor:ktor-server-test-host:$ktor_version")

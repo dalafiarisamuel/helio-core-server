@@ -70,19 +70,27 @@ requests.http
 
 ## Environment Variables
 
-Only PVWatts requires a key; server port is optional.
+Only PVWatts requires a key; server port is optional. Redis (with optional auth) is optional for caching.
 
 Example `.env`:
 
 ```
 PVWATTS_API_KEY=your-nrel-key
 SERVER_PORT=8080
+REDIS_URL=redis://localhost:6379  # optional
+REDIS_USERNAME=default           # optional, matches Redis ACL user
+REDIS_PASSWORD=redispass         # optional, required if Redis is secured
 ```
 
 ## Running the Server
 
 ```bash
 ./gradlew run   # uses SERVER_PORT or defaults to 8080
+```
+
+To start Redis locally (optional cache):
+```bash
+REDIS_PASSWORD=redispass docker-compose up -d redis
 ```
 
 ## API Endpoints

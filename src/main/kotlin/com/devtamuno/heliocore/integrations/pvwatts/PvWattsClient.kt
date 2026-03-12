@@ -30,6 +30,15 @@ class PvWattsClient(
         val tilt = request.panelTilt ?: 20.0
         val azimuth = request.azimuth ?: 180.0
 
+        logger.info(
+            "Calling PVWatts: lat={}, lon={}, capacityKw={}, tilt={}, azimuth={}",
+            request.latitude,
+            request.longitude,
+            systemCapacityKw,
+            tilt,
+            azimuth
+        )
+
         val response = client.get("https://developer.nrel.gov/api/pvwatts/v8.json") {
             parameter("api_key", apiKey)
             parameter("lat", request.latitude)
@@ -56,6 +65,13 @@ class PvWattsClient(
         }
 
         val outputs = body.outputs ?: throw ExternalServiceException("PVWatts response missing outputs")
+
+        logger.info(
+            "PVWatts response: acAnnual={} kWh, solradAnnual={} kWh/m2/day, monthlyCount={}",
+            outputs.acAnnual,
+            outputs.solarRadAnnual,
+            outputs.acMonthly.size
+        )
 
         return SolarPotentialResponse(
             solradAnnual = MeasuredValue(outputs.solarRadAnnual, "kWh/m²/day"),

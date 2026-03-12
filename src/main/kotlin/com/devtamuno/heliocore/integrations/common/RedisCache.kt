@@ -29,15 +29,27 @@ class CachingSolarDataProvider(
         val commands = connection.async()
         val cached = commands.get(key).await()
         if (cached != null) {
-            logger.info("Redis cache hit for solar data key={}", key)
-            return json.decodeFromString(cached)
+            val decoded: SolarPotentialResponse = json.decodeFromString(cached)
+            logger.info(
+                "Redis cache hit for solar data key={}, acAnnual={} {}",
+                key,
+                decoded.acAnnual.value,
+                decoded.acAnnual.unit
+            )
+            return decoded
         }
 
         logger.info("Redis cache miss for solar data key={}, fetching delegate", key)
 
         val fresh = delegate.fetchSolarData(request, systemCapacityKw)
         commands.setex(key, ttlSeconds, json.encodeToString(fresh))
-        logger.info("Redis cache set for solar data key={} ttlSeconds={}", key, ttlSeconds)
+        logger.info(
+            "Redis cache set for solar data key={} ttlSeconds={} acAnnual={} {}",
+            key,
+            ttlSeconds,
+            fresh.acAnnual.value,
+            fresh.acAnnual.unit
+        )
         return fresh
     }
 }
@@ -55,15 +67,27 @@ class CachingSolarForecastProvider(
         val commands = connection.async()
         val cached = commands.get(key).await()
         if (cached != null) {
-            logger.info("Redis cache hit for forecast key={}", key)
-            return json.decodeFromString(cached)
+            val decoded: SolarForecastResponse = json.decodeFromString(cached)
+            logger.info(
+                "Redis cache hit for forecast key={}, days={}, avgExpectedEnergy={}",
+                key,
+                decoded.forecasts.size,
+                decoded.forecasts.map { it.expectedEnergy.value }.average()
+            )
+            return decoded
         }
 
         logger.info("Redis cache miss for forecast key={}, fetching delegate", key)
 
         val fresh = delegate.forecast(request)
         commands.setex(key, ttlSeconds, json.encodeToString(fresh))
-        logger.info("Redis cache set for forecast key={} ttlSeconds={}", key, ttlSeconds)
+        logger.info(
+            "Redis cache set for forecast key={} ttlSeconds={} days={} avgExpectedEnergy={}",
+            key,
+            ttlSeconds,
+            fresh.forecasts.size,
+            fresh.forecasts.map { it.expectedEnergy.value }.average()
+        )
         return fresh
     }
 }

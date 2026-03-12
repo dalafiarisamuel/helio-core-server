@@ -20,12 +20,15 @@ import io.lettuce.core.api.StatefulRedisConnection
 import kotlinx.serialization.json.Json
 import org.koin.core.module.Module
 import org.koin.dsl.module
+import org.slf4j.LoggerFactory
 
 /**
  * Builds the list of Koin modules for the application.
  * Caching providers are installed only when a Redis URL is configured.
  */
 fun buildAppModules(appConfig: AppConfig): List<Module> {
+    val logger = LoggerFactory.getLogger("DiModules")
+
     val core = module {
         single { Json { ignoreUnknownKeys = true; prettyPrint = false } }
         single {
@@ -51,6 +54,7 @@ fun buildAppModules(appConfig: AppConfig): List<Module> {
     }
 
     val providers = appConfig.redisUrl?.let { redisUrl ->
+        logger.info("Redis URL detected; enabling cached providers via Redis")
         module {
             single<StatefulRedisConnection<String, String>> {
                 RedisFactory.connect(redisUrl, appConfig.redisUsername, appConfig.redisPassword)
@@ -63,6 +67,7 @@ fun buildAppModules(appConfig: AppConfig): List<Module> {
             }
         }
     } ?: module {
+        logger.info("No Redis URL configured; using direct providers without caching")
         single<SolarDataProvider> { get<PvWattsClient>() }
         single<SolarForecastProvider> { get<OpenMeteoForecastClient>() }
     }

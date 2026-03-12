@@ -1,9 +1,10 @@
-package com.devtamuno.heliocore.integrations
+package com.devtamuno.heliocore.integrations.pvwatts
 
 import com.devtamuno.heliocore.domain.ExternalServiceException
 import com.devtamuno.heliocore.domain.MeasuredValue
 import com.devtamuno.heliocore.domain.SolarPotentialResponse
 import com.devtamuno.heliocore.domain.SolarEstimateRequest
+import com.devtamuno.heliocore.integrations.common.SolarDataProvider
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.request.get
@@ -14,15 +15,12 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import org.slf4j.LoggerFactory
 
-interface SolarDataProvider {
-    suspend fun fetchSolarData(request: SolarEstimateRequest, systemCapacityKw: Double): SolarPotentialResponse
-}
 
 class PvWattsClient(
     private val apiKey: String,
     private val client: HttpClient,
     private val defaultSystemLossesPercent: Double = 14.0
-): SolarDataProvider {
+) : SolarDataProvider {
     private val logger = LoggerFactory.getLogger(PvWattsClient::class.java)
 
     override suspend fun fetchSolarData(
@@ -62,7 +60,9 @@ class PvWattsClient(
         return SolarPotentialResponse(
             solradAnnual = MeasuredValue(outputs.solarRadAnnual, "kWh/m²/day"),
             acMonthly = outputs.acMonthly.map { MeasuredValue(it, "kWh") },
-            acAnnual = MeasuredValue(outputs.acAnnual, "kWh")
+            acAnnual = MeasuredValue(outputs.acAnnual, "kWh"),
+            panelWattage = request.panelWattage,
+            panelCount = request.panelCount
         )
     }
 }

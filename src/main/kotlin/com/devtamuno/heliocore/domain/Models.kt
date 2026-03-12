@@ -26,13 +26,29 @@ data class SolarEstimateResponse(
 data class SolarPotentialResponse(
     @SerialName("solrad_annual") val solradAnnual: MeasuredValue,
     @SerialName("ac_monthly") val acMonthly: List<MeasuredValue>,
-    @SerialName("ac_annual") val acAnnual: MeasuredValue
+    @SerialName("ac_annual") val acAnnual: MeasuredValue,
+    @SerialName("panel_wattage") val panelWattage: Double,
+    @SerialName("panel_count") val panelCount: Int
 )
 
 @Serializable
 data class MeasuredValue(
     val value: Double,
     val unit: String
+)
+
+@Serializable
+data class SolarForecastEntry(
+    val date: String,
+    @SerialName("peak_sun_hours") val peakSunHours: MeasuredValue,
+    @SerialName("expected_energy") val expectedEnergy: MeasuredValue
+)
+
+@Serializable
+data class SolarForecastResponse(
+    val forecasts: List<SolarForecastEntry>,
+    @SerialName("panel_wattage") val panelWattage: Double,
+    @SerialName("panel_count") val panelCount: Int
 )
 
 sealed class DomainException(message: String) : RuntimeException(message)

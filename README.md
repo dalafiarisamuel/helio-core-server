@@ -35,6 +35,7 @@ Server will bind on `0.0.0.0:PORT`.
 
 - `GET /health` → `{ "status": "ok" }`
 - `GET /solar/potential?lat=6.52&lon=3.37[&tilt=20&azimuth=180]` → PVWatts-derived potential
+- `GET /solar/forecast?lat=6.52&lon=3.37[&panel_wattage=450&panel_count=10]` → Forecasted daily energy using Open-Meteo (fixed 7-day window)
 - `POST /solar/estimate`
 
 ```json
@@ -50,11 +51,11 @@ Sample response:
 
 ```json
 {
-  "system_capacity_kw": 5.4,
-  "peak_sun_hours": 5.2,
-  "daily_energy_kwh": 24.4,
-  "monthly_energy_kwh": 732.0,
-  "annual_energy_kwh": 8906.0
+  "system_capacity": { "value": 5.4, "unit": "kW" },
+  "peak_sun_hours": { "value": 5.2, "unit": "hours" },
+  "daily_energy": { "value": 24.4, "unit": "kWh" },
+  "monthly_energy": { "value": 732.0, "unit": "kWh" },
+  "annual_energy": { "value": 8906.0, "unit": "kWh" }
 }
 ```
 
@@ -66,6 +67,9 @@ curl -s http://localhost:8080/health
 
 # potential (PVWatts)
 curl -s "http://localhost:8080/solar/potential?lat=6.5244&lon=3.3792&tilt=20&azimuth=180"
+
+# forecast (Open-Meteo)
+curl -s "http://localhost:8080/solar/forecast?lat=6.5244&lon=3.3792&panel_wattage=450&panel_count=12"
 
 # estimate (uses PVWatts internally)
 curl -s -X POST http://localhost:8080/solar/estimate \

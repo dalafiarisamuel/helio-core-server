@@ -4,12 +4,15 @@ import com.devtamuno.heliocore.config.AppConfig
 import com.devtamuno.heliocore.domain.ErrorResponse
 import com.devtamuno.heliocore.domain.ExternalServiceException
 import com.devtamuno.heliocore.domain.ValidationException
-import com.devtamuno.heliocore.integrations.PvWattsClient
+import com.devtamuno.heliocore.integrations.pvwatts.PvWattsClient
+import com.devtamuno.heliocore.integrations.forecast.OpenMeteoForecastClient
+import com.devtamuno.heliocore.integrations.common.SolarForecastProvider
 import com.devtamuno.heliocore.routes.configureRoutes
 import com.devtamuno.heliocore.services.SolarProductionCalculator
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.cio.CIO
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation as ClientContentNegotiation
+import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.plugins.logging.LogLevel
 import io.ktor.client.plugins.logging.Logging
 import io.ktor.http.HttpHeaders
@@ -34,11 +37,16 @@ fun main(args: Array<String>) {
 
 @Suppress("unused")
 fun Application.module() {
-    val appConfig = AppConfig.fromEnv()
+    val appConfig = AppConfig.fromConfig(environment.config)
     val json = Json { ignoreUnknownKeys = true; prettyPrint = false }
 
     val httpClient = HttpClient(CIO) {
         expectSuccess = false
+        install(HttpTimeout) {
+            requestTimeoutMillis = appConfig.httpClientTimeoutMillis
+            connectTimeoutMillis = appConfig.httpClientTimeoutMillis
+            socketTimeoutMillis = appConfig.httpClientTimeoutMillis
+        }
         install(ClientContentNegotiation) {
             json(json)
         }
@@ -70,7 +78,10 @@ fun Application.module() {
             call.respond(io.ktor.http.HttpStatusCode.BadRequest, ErrorResponse(cause.message ?: "Invalid request"))
         }
         exception<ExternalServiceException> { call, cause ->
-            call.respond(io.ktor.http.HttpStatusCode.BadGateway, ErrorResponse(cause.message ?: "Upstream service error"))
+            call.respond(
+                io.ktor.http.HttpStatusCode.BadGateway,
+                ErrorResponse(cause.message ?: "Upstream service error")
+            )
         }
         exception<Throwable> { call, cause ->
             call.application.environment.log.error("Unhandled exception", cause)
@@ -86,6 +97,7 @@ fun Application.module() {
 
     val calculator = SolarProductionCalculator()
     val pvWattsClient = PvWattsClient(appConfig.pvWattsApiKey, httpClient)
+    val forecastProvider: SolarForecastProvider? = OpenMeteoForecastClient(httpClient)
 
-    configureRoutes(calculator, pvWattsClient)
+    configureRoutes(calculator, pvWattsClient, forecastProvider)
 }

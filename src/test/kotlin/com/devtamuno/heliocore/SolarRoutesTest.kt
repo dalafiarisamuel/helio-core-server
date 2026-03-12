@@ -4,7 +4,7 @@ import com.devtamuno.heliocore.domain.MeasuredValue
 import com.devtamuno.heliocore.domain.SolarEstimateRequest
 import com.devtamuno.heliocore.domain.SolarEstimateResponse
 import com.devtamuno.heliocore.domain.SolarPotentialResponse
-import com.devtamuno.heliocore.integrations.SolarDataProvider
+import com.devtamuno.heliocore.integrations.common.SolarDataProvider
 import com.devtamuno.heliocore.routes.configureRoutes
 import com.devtamuno.heliocore.services.SolarProductionCalculator
 import io.ktor.client.call.body
@@ -45,11 +45,13 @@ class SolarRoutesTest {
                     return SolarPotentialResponse(
                         solradAnnual = MeasuredValue(4.5, "kWh/m²/day"),
                         acMonthly = emptyList(),
-                        acAnnual = MeasuredValue(0.0, "kWh")
+                        acAnnual = MeasuredValue(0.0, "kWh"),
+                        panelWattage = request.panelWattage,
+                        panelCount = request.panelCount
                     )
                 }
             }
-            configureRoutes(calculator, fakeProvider)
+            configureRoutes(calculator, fakeProvider, solarForecastProvider = null)
         }
 
         val client = createClient {
@@ -87,9 +89,9 @@ class SolarRoutesTest {
             val calculator = SolarProductionCalculator()
             val fakeProvider = object : SolarDataProvider {
                 override suspend fun fetchSolarData(request: SolarEstimateRequest, systemCapacityKw: Double): SolarPotentialResponse =
-                    SolarPotentialResponse(MeasuredValue(4.5, "kWh/m²/day"), emptyList(), MeasuredValue(0.0, "kWh"))
+                    SolarPotentialResponse(MeasuredValue(4.5, "kWh/m²/day"), emptyList(), MeasuredValue(0.0, "kWh"), panelWattage = request.panelWattage, panelCount = request.panelCount)
             }
-            configureRoutes(calculator, fakeProvider)
+            configureRoutes(calculator, fakeProvider, solarForecastProvider = null)
         }
 
         val client = createClient { install(ContentNegotiation) { json(json) } }
@@ -116,10 +118,12 @@ class SolarRoutesTest {
                     SolarPotentialResponse(
                         solradAnnual = MeasuredValue(5.1, "kWh/m²/day"),
                         acMonthly = listOf(MeasuredValue(400.0, "kWh")),
-                        acAnnual = MeasuredValue(4800.0, "kWh")
+                        acAnnual = MeasuredValue(4800.0, "kWh"),
+                        panelWattage = request.panelWattage,
+                        panelCount = request.panelCount
                     )
             }
-            configureRoutes(calculator, fakeProvider)
+            configureRoutes(calculator, fakeProvider, solarForecastProvider = null)
         }
 
         val client = createClient { install(ContentNegotiation) { json(json) } }

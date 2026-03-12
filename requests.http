@@ -58,3 +58,6 @@ Content-Type: application/json
   "panel_tilt": 35,
   "azimuth": 180
 }
+
+### Solar forecast - Lagos, Nigeria (Open-Meteo)
+GET http://localhost:8080/solar/forecast?lat=6.5244&lon=3.3792&panel_wattage=450&panel_count=12

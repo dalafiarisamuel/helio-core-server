@@ -7,7 +7,7 @@ import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.serialization.kotlinx.json.json
 import com.devtamuno.heliocore.routes.configureRoutes
 import com.devtamuno.heliocore.services.SolarProductionCalculator
-import com.devtamuno.heliocore.integrations.SolarDataProvider
+import com.devtamuno.heliocore.integrations.common.SolarDataProvider
 import com.devtamuno.heliocore.domain.MeasuredValue
 import com.devtamuno.heliocore.domain.SolarPotentialResponse
 import com.devtamuno.heliocore.domain.SolarEstimateRequest
@@ -34,10 +34,12 @@ class ApplicationTest {
                     SolarPotentialResponse(
                         solradAnnual = MeasuredValue(5.0, "kWh/m²/day"),
                         acMonthly = emptyList(),
-                        acAnnual = MeasuredValue(0.0, "kWh")
+                        acAnnual = MeasuredValue(0.0, "kWh"),
+                        panelWattage = request.panelWattage,
+                        panelCount = request.panelCount
                     )
             }
-            configureRoutes(calculator, fakeProvider)
+            configureRoutes(calculator, fakeProvider, solarForecastProvider = null)
         }
 
         val client = createClient { install(ClientContentNegotiation) { clientJson() } }

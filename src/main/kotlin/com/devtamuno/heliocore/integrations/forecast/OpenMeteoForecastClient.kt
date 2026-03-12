@@ -50,12 +50,21 @@ class OpenMeteoForecastClient(
 
         val entries = grouped.entries.take(forecastDays).map { (date, values) ->
             val dailyWhPerM2 = values.sumOf { it.second } // shortwave_radiation is Wh/m2 for the hour window
+            val (peakTimeIso, peakIrradiance) = values.maxByOrNull { it.second } ?: ("" to 0.0)
+            val threshold = peakIrradiance * 0.2
+            val windowTimes = values.filter { it.second >= threshold }.map { it.first }
+            val windowStart = windowTimes.minOrNull().orEmpty()
+            val windowEnd = windowTimes.maxOrNull().orEmpty()
             val peakSunHours = dailyWhPerM2 / 1000.0
             val expectedEnergy = capacityKw * peakSunHours * (1 - defaultLosses)
             SolarForecastEntry(
                 date = date.format(DateTimeFormatter.ISO_DATE),
                 peakSunHours = MeasuredValue(peakSunHours, "hours"),
-                expectedEnergy = MeasuredValue(expectedEnergy, "kWh")
+                expectedEnergy = MeasuredValue(expectedEnergy, "kWh"),
+                peakIrradianceTime = peakTimeIso,
+                peakIrradiance = MeasuredValue(peakIrradiance, "Wh/m²"),
+                sunWindowStart = windowStart,
+                sunWindowEnd = windowEnd
             )
         }
 

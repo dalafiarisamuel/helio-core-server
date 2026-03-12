@@ -1,10 +1,8 @@
 package com.devtamuno.heliocore
 
-import com.devtamuno.heliocore.domain.MeasuredValue
-import com.devtamuno.heliocore.domain.SolarEstimateRequest
-import com.devtamuno.heliocore.domain.SolarEstimateResponse
-import com.devtamuno.heliocore.domain.SolarPotentialResponse
+import com.devtamuno.heliocore.domain.*
 import com.devtamuno.heliocore.integrations.common.SolarDataProvider
+import com.devtamuno.heliocore.integrations.common.SolarForecastProvider
 import com.devtamuno.heliocore.routes.configureRoutes
 import com.devtamuno.heliocore.services.SolarProductionCalculator
 import io.ktor.client.call.body
@@ -25,7 +23,7 @@ import kotlin.time.Duration.Companion.seconds
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
-import kotlin.test.assertNotNull
+import kotlin.test.assertFalse
 
 class SolarRoutesTest {
 
@@ -142,5 +140,69 @@ class SolarRoutesTest {
         val body: SolarPotentialResponse = response.body()
         assertEquals("kWh/m²/day", body.solradAnnual.unit)
         assertTrue(body.acMonthly.first().value > 0)
+        assertEquals(1000.0, body.panelWattage)
+        assertEquals(1, body.panelCount)
+    }
+
+    @Test
+    fun `forecast endpoint returns window times`() = testApplication {
+        application {
+            install(RateLimit) {
+                register(RateLimitName("global")) { rateLimiter(limit = 100, refillPeriod = 60.seconds) }
+            }
+            install(io.ktor.server.plugins.contentnegotiation.ContentNegotiation) { json(json) }
+            val calculator = SolarProductionCalculator()
+            val fakeData = object : SolarDataProvider {
+                override suspend fun fetchSolarData(request: SolarEstimateRequest, systemCapacityKw: Double): SolarPotentialResponse =
+                    SolarPotentialResponse(
+                        solradAnnual = MeasuredValue(5.0, "kWh/m²/day"),
+                        acMonthly = emptyList(),
+                        acAnnual = MeasuredValue(0.0, "kWh"),
+                        panelWattage = request.panelWattage,
+                        panelCount = request.panelCount
+                    )
+            }
+            val fakeForecast = object : SolarForecastProvider {
+                override suspend fun forecast(request: SolarEstimateRequest): SolarForecastResponse =
+                    SolarForecastResponse(
+                        forecasts = listOf(
+                            SolarForecastEntry(
+                                date = "2026-03-12",
+                                peakSunHours = MeasuredValue(5.0, "hours"),
+                                expectedEnergy = MeasuredValue(10.0, "kWh"),
+                                peakIrradianceTime = "2026-03-12T12:00",
+                                peakIrradiance = MeasuredValue(500.0, "Wh/m²"),
+                                sunWindowStart = "2026-03-12T09:00",
+                                sunWindowEnd = "2026-03-12T15:00"
+                            )
+                        ),
+                        panelWattage = request.panelWattage,
+                        panelCount = request.panelCount
+                    )
+            }
+            configureRoutes(calculator, fakeData, solarForecastProvider = fakeForecast)
+        }
+
+        val client = createClient { install(ContentNegotiation) { json(json) } }
+        val response = client.post("/solar/forecast") {
+            contentType(ContentType.Application.Json)
+            setBody(
+                SolarEstimateRequest(
+                    latitude = 1.0,
+                    longitude = 1.0,
+                    panelWattage = 400.0,
+                    panelCount = 10
+                )
+            )
+        }
+
+        assertEquals(HttpStatusCode.OK, response.status)
+        val body = response.body<SolarForecastResponse>()
+        assertTrue(body.forecasts.isNotEmpty())
+        val entry = body.forecasts.first()
+        assertEquals("2026-03-12T09:00", entry.sunWindowStart)
+        assertEquals("2026-03-12T15:00", entry.sunWindowEnd)
+        assertEquals(400.0, body.panelWattage)
+        assertEquals(10, body.panelCount)
     }
 }

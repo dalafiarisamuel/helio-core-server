@@ -29,7 +29,7 @@ import io.ktor.server.plugins.statuspages.*
 import io.ktor.server.request.path
 import io.ktor.server.response.*
 import kotlinx.serialization.json.Json
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.launch
 import org.koin.ktor.ext.getKoin
 import org.koin.ktor.ext.inject
 import org.koin.ktor.plugin.Koin
@@ -61,7 +61,9 @@ fun Application.module() {
     val dataSource by inject<HikariDataSource>()
     val userRepository by inject<UserRepository>()
 
-    runBlocking { userRepository.ensureSchema() }
+    launch {
+        userRepository.ensureSchema()
+    }
 
     monitor.subscribe(ApplicationStopped) {
         httpClient.close()

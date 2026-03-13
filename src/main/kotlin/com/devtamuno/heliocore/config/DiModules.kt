@@ -62,8 +62,19 @@ fun buildAppModules(appConfig: AppConfig): List<Module> {
                     jdbcUrl = appConfig.db.url
                     username = appConfig.db.user
                     password = appConfig.db.password
-                    maximumPoolSize = 10
                     driverClassName = "org.postgresql.Driver"
+
+                    // Optimized HikariCP settings
+                    maximumPoolSize = 10
+                    minimumIdle = 2
+                    idleTimeout = 300000 // 5 minutes
+                    connectionTimeout = 20000 // 20 seconds
+                    maxLifetime = 1800000 // 30 minutes
+                    
+                    // Diagnostic and validation settings
+                    keepaliveTime = 60000 // 1 minute
+                    leakDetectionThreshold = 10000 // 10 seconds
+                    validationTimeout = 5000 // 5 seconds
                 }
             )
         }

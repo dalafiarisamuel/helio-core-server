@@ -1,5 +1,10 @@
 package com.devtamuno.heliocore
 
+import com.auth0.jwt.JWT
+import com.auth0.jwt.algorithms.Algorithm
+import com.devtamuno.heliocore.auth.AuthService
+import com.devtamuno.heliocore.auth.UserRepository
+import com.devtamuno.heliocore.config.JwtSettings
 import com.devtamuno.heliocore.domain.*
 import com.devtamuno.heliocore.integrations.common.SolarDataProvider
 import com.devtamuno.heliocore.integrations.common.SolarForecastProvider
@@ -7,6 +12,7 @@ import com.devtamuno.heliocore.routes.configureRoutes
 import com.devtamuno.heliocore.services.SolarProductionCalculator
 import io.ktor.client.call.body
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
+import io.ktor.client.request.header
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.bodyAsText
@@ -15,27 +21,66 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.application.install
+import io.ktor.server.auth.Authentication
+import io.ktor.server.auth.AuthenticationConfig
+import io.ktor.server.auth.jwt.JWTPrincipal
+import io.ktor.server.auth.jwt.jwt
 import io.ktor.server.plugins.ratelimit.RateLimit
 import io.ktor.server.plugins.ratelimit.RateLimitName
 import io.ktor.server.testing.testApplication
+import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
-import kotlin.time.Duration.Companion.seconds
+import org.jetbrains.exposed.sql.Database
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertTrue
 import kotlin.test.assertFalse
+import kotlin.test.assertTrue
+import kotlin.time.Duration.Companion.seconds
 
 class SolarRoutesTest {
 
     private val json = Json { ignoreUnknownKeys = true }
 
+    private fun jwtSettings() = JwtSettings(
+        secret = "test-secret",
+        issuer = "test-issuer",
+        audience = "test-audience",
+        realm = "test-realm",
+        expiryMinutes = 60
+    )
+
+    private fun authConfig(jwtSettings: JwtSettings): Pair<AuthenticationConfig.() -> Unit, String> {
+        val token = JWT.create()
+            .withAudience(jwtSettings.audience)
+            .withIssuer(jwtSettings.issuer)
+            .withClaim("email", "user@example.com")
+            .sign(Algorithm.HMAC256(jwtSettings.secret))
+        val config: AuthenticationConfig.() -> Unit = {
+            jwt("auth-jwt") {
+                realm = jwtSettings.realm
+                verifier(
+                    JWT
+                        .require(Algorithm.HMAC256(jwtSettings.secret))
+                        .withAudience(jwtSettings.audience)
+                        .withIssuer(jwtSettings.issuer)
+                        .build()
+                )
+                validate { credential -> JWTPrincipal(credential.payload) }
+            }
+        }
+        return config to token
+    }
+
     @Test
     fun `estimate endpoint returns units per value`() = testApplication {
+        val jwtSettings = jwtSettings()
+        val (authCfg, token) = authConfig(jwtSettings)
         application {
             install(RateLimit) {
                 register(RateLimitName("global")) { rateLimiter(limit = 100, refillPeriod = 60.seconds) }
             }
             install(io.ktor.server.plugins.contentnegotiation.ContentNegotiation) { json(json) }
+            install(Authentication, configure = authCfg)
             val calculator = SolarProductionCalculator()
             val fakeProvider = object : SolarDataProvider {
                 override suspend fun fetchSolarData(request: SolarEstimateRequest, systemCapacityKw: Double): SolarPotentialResponse {
@@ -48,15 +93,18 @@ class SolarRoutesTest {
                     )
                 }
             }
-            configureRoutes(calculator, fakeProvider, solarForecastProvider = null)
+            val db = Database.connect("jdbc:h2:mem:solar-estimate;DB_CLOSE_DELAY=-1;", driver = "org.h2.Driver")
+            val userRepository = UserRepository(db)
+            userRepository.ensureSchema()
+            val authService = AuthService(userRepository, jwtSettings)
+            configureRoutes(calculator, fakeProvider, solarForecastProvider = null, authService = authService)
         }
 
-        val client = createClient {
-            install(ContentNegotiation) { json(json) }
-        }
+        val client = createClient { install(ContentNegotiation) { json(json) } }
 
         val response = client.post("/solar/estimate") {
             contentType(ContentType.Application.Json)
+            header("Authorization", "Bearer $token")
             setBody(
                 SolarEstimateRequest(
                     latitude = 37.0,
@@ -78,23 +126,31 @@ class SolarRoutesTest {
 
     @Test
     fun `estimate endpoint validates missing body fields`() = testApplication {
+        val jwtSettings = jwtSettings()
+        val (authCfg, token) = authConfig(jwtSettings)
         application {
             install(RateLimit) {
                 register(RateLimitName("global")) { rateLimiter(limit = 100, refillPeriod = 60.seconds) }
             }
             install(io.ktor.server.plugins.contentnegotiation.ContentNegotiation) { json(json) }
+            install(Authentication, configure = authCfg)
             val calculator = SolarProductionCalculator()
             val fakeProvider = object : SolarDataProvider {
                 override suspend fun fetchSolarData(request: SolarEstimateRequest, systemCapacityKw: Double): SolarPotentialResponse =
                     SolarPotentialResponse(MeasuredValue(4.5, "kWh/m²/day"), emptyList(), MeasuredValue(0.0, "kWh"), panelWattage = request.panelWattage, panelCount = request.panelCount)
             }
-            configureRoutes(calculator, fakeProvider, solarForecastProvider = null)
+            val db = Database.connect("jdbc:h2:mem:solar-validate;DB_CLOSE_DELAY=-1;", driver = "org.h2.Driver")
+            val userRepository = UserRepository(db)
+            userRepository.ensureSchema()
+            val authService = AuthService(userRepository, jwtSettings)
+            configureRoutes(calculator, fakeProvider, solarForecastProvider = null, authService = authService)
         }
 
         val client = createClient { install(ContentNegotiation) { json(json) } }
 
         val response = client.post("/solar/estimate") {
             contentType(ContentType.Application.Json)
+            header("Authorization", "Bearer $token")
             setBody("""{"latitude":0}""")
         }
 
@@ -104,11 +160,14 @@ class SolarRoutesTest {
 
     @Test
     fun `potential endpoint returns measured values`() = testApplication {
+        val jwtSettings = jwtSettings()
+        val (authCfg, token) = authConfig(jwtSettings)
         application {
             install(RateLimit) {
                 register(RateLimitName("global")) { rateLimiter(limit = 100, refillPeriod = 60.seconds) }
             }
             install(io.ktor.server.plugins.contentnegotiation.ContentNegotiation) { json(json) }
+            install(Authentication, configure = authCfg)
             val calculator = SolarProductionCalculator()
             val fakeProvider = object : SolarDataProvider {
                 override suspend fun fetchSolarData(request: SolarEstimateRequest, systemCapacityKw: Double): SolarPotentialResponse =
@@ -120,12 +179,17 @@ class SolarRoutesTest {
                         panelCount = request.panelCount
                     )
             }
-            configureRoutes(calculator, fakeProvider, solarForecastProvider = null)
+            val db = Database.connect("jdbc:h2:mem:solar-potential;DB_CLOSE_DELAY=-1;", driver = "org.h2.Driver")
+            val userRepository = UserRepository(db)
+            userRepository.ensureSchema()
+            val authService = AuthService(userRepository, jwtSettings)
+            configureRoutes(calculator, fakeProvider, solarForecastProvider = null, authService = authService)
         }
 
         val client = createClient { install(ContentNegotiation) { json(json) } }
         val response = client.post("/solar/potential") {
             contentType(ContentType.Application.Json)
+            header("Authorization", "Bearer $token")
             setBody(
                 SolarEstimateRequest(
                     latitude = 1.0,
@@ -146,11 +210,14 @@ class SolarRoutesTest {
 
     @Test
     fun `forecast endpoint returns window times`() = testApplication {
+        val jwtSettings = jwtSettings()
+        val (authCfg, token) = authConfig(jwtSettings)
         application {
             install(RateLimit) {
                 register(RateLimitName("global")) { rateLimiter(limit = 100, refillPeriod = 60.seconds) }
             }
             install(io.ktor.server.plugins.contentnegotiation.ContentNegotiation) { json(json) }
+            install(Authentication, configure = authCfg)
             val calculator = SolarProductionCalculator()
             val fakeData = object : SolarDataProvider {
                 override suspend fun fetchSolarData(request: SolarEstimateRequest, systemCapacityKw: Double): SolarPotentialResponse =
@@ -180,12 +247,17 @@ class SolarRoutesTest {
                         panelCount = request.panelCount
                     )
             }
-            configureRoutes(calculator, fakeData, solarForecastProvider = fakeForecast)
+            val db = Database.connect("jdbc:h2:mem:solar-forecast;DB_CLOSE_DELAY=-1;", driver = "org.h2.Driver")
+            val userRepository = UserRepository(db)
+            userRepository.ensureSchema()
+            val authService = AuthService(userRepository, jwtSettings)
+            configureRoutes(calculator, fakeData, solarForecastProvider = fakeForecast, authService = authService)
         }
 
         val client = createClient { install(ContentNegotiation) { json(json) } }
         val response = client.post("/solar/forecast") {
             contentType(ContentType.Application.Json)
+            header("Authorization", "Bearer $token")
             setBody(
                 SolarEstimateRequest(
                     latitude = 1.0,

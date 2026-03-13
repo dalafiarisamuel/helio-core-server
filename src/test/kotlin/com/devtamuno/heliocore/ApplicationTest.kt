@@ -11,14 +11,23 @@ import com.devtamuno.heliocore.integrations.common.SolarDataProvider
 import com.devtamuno.heliocore.domain.MeasuredValue
 import com.devtamuno.heliocore.domain.SolarPotentialResponse
 import com.devtamuno.heliocore.domain.SolarEstimateRequest
+import com.devtamuno.heliocore.auth.AuthService
+import com.devtamuno.heliocore.auth.UserRepository
+import com.devtamuno.heliocore.config.JwtSettings
+import com.auth0.jwt.JWT
+import com.auth0.jwt.algorithms.Algorithm
+import org.jetbrains.exposed.sql.Database
 import io.ktor.client.request.get
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation as ClientContentNegotiation
 import io.ktor.serialization.kotlinx.json.json as clientJson
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.install
+import io.ktor.server.auth.*
+import io.ktor.server.auth.jwt.*
 import io.ktor.server.plugins.ratelimit.RateLimit
 import io.ktor.server.plugins.ratelimit.RateLimitName
 import kotlin.time.Duration.Companion.seconds
+import kotlinx.coroutines.runBlocking
 
 class ApplicationTest {
     @Test
@@ -39,7 +48,31 @@ class ApplicationTest {
                         panelCount = request.panelCount
                     )
             }
-            configureRoutes(calculator, fakeProvider, solarForecastProvider = null)
+            val jwtSettings = JwtSettings(
+                secret = "test-secret",
+                issuer = "test-issuer",
+                audience = "test-audience",
+                realm = "test-realm",
+                expiryMinutes = 60
+            )
+            val db = Database.connect("jdbc:h2:mem:app-test;DB_CLOSE_DELAY=-1;", driver = "org.h2.Driver")
+            val userRepository = UserRepository(db)
+            userRepository.ensureSchema()
+            val authService = AuthService(userRepository, jwtSettings)
+            install(Authentication) {
+                jwt("auth-jwt") {
+                    realm = jwtSettings.realm
+                    verifier(
+                        JWT
+                            .require(Algorithm.HMAC256(jwtSettings.secret))
+                            .withAudience(jwtSettings.audience)
+                            .withIssuer(jwtSettings.issuer)
+                            .build()
+                    )
+                    validate { credential -> JWTPrincipal(credential.payload) }
+                }
+            }
+            configureRoutes(calculator, fakeProvider, solarForecastProvider = null, authService = authService)
         }
 
         val client = createClient { install(ClientContentNegotiation) { clientJson() } }

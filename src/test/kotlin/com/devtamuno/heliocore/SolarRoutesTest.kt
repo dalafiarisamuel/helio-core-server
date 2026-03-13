@@ -28,12 +28,10 @@ import io.ktor.server.auth.jwt.jwt
 import io.ktor.server.plugins.ratelimit.RateLimit
 import io.ktor.server.plugins.ratelimit.RateLimitName
 import io.ktor.server.testing.testApplication
-import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 import org.jetbrains.exposed.sql.Database
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.seconds
 
@@ -46,7 +44,8 @@ class SolarRoutesTest {
         issuer = "test-issuer",
         audience = "test-audience",
         realm = "test-realm",
-        expiryMinutes = 60
+        expiryMinutes = 60,
+        refreshExpiryDays = 30
     )
 
     private fun authConfig(jwtSettings: JwtSettings): Pair<AuthenticationConfig.() -> Unit, String> {
@@ -78,6 +77,7 @@ class SolarRoutesTest {
         application {
             install(RateLimit) {
                 register(RateLimitName("global")) { rateLimiter(limit = 100, refillPeriod = 60.seconds) }
+                register(RateLimitName("user")) { rateLimiter(limit = 100, refillPeriod = 60.seconds) }
             }
             install(io.ktor.server.plugins.contentnegotiation.ContentNegotiation) { json(json) }
             install(Authentication, configure = authCfg)
@@ -131,6 +131,7 @@ class SolarRoutesTest {
         application {
             install(RateLimit) {
                 register(RateLimitName("global")) { rateLimiter(limit = 100, refillPeriod = 60.seconds) }
+                register(RateLimitName("user")) { rateLimiter(limit = 100, refillPeriod = 60.seconds) }
             }
             install(io.ktor.server.plugins.contentnegotiation.ContentNegotiation) { json(json) }
             install(Authentication, configure = authCfg)
@@ -165,6 +166,7 @@ class SolarRoutesTest {
         application {
             install(RateLimit) {
                 register(RateLimitName("global")) { rateLimiter(limit = 100, refillPeriod = 60.seconds) }
+                register(RateLimitName("user")) { rateLimiter(limit = 100, refillPeriod = 60.seconds) }
             }
             install(io.ktor.server.plugins.contentnegotiation.ContentNegotiation) { json(json) }
             install(Authentication, configure = authCfg)
@@ -215,6 +217,7 @@ class SolarRoutesTest {
         application {
             install(RateLimit) {
                 register(RateLimitName("global")) { rateLimiter(limit = 100, refillPeriod = 60.seconds) }
+                register(RateLimitName("user")) { rateLimiter(limit = 100, refillPeriod = 60.seconds) }
             }
             install(io.ktor.server.plugins.contentnegotiation.ContentNegotiation) { json(json) }
             install(Authentication, configure = authCfg)

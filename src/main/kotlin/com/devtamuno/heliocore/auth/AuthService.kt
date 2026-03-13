@@ -5,11 +5,13 @@ import com.auth0.jwt.algorithms.Algorithm
 import com.devtamuno.heliocore.config.JwtSettings
 import com.devtamuno.heliocore.domain.AuthResponse
 import com.devtamuno.heliocore.domain.LoginRequest
+import com.devtamuno.heliocore.domain.RefreshRequest
 import com.devtamuno.heliocore.domain.RegisterRequest
 import com.devtamuno.heliocore.domain.UserResponse
 import com.devtamuno.heliocore.domain.ValidationException
 import org.mindrot.jbcrypt.BCrypt
 import java.time.Instant
+import java.time.LocalDateTime
 import java.util.Date
 import java.util.UUID
 
@@ -22,12 +24,7 @@ class AuthService(
         validateCredentials(request.email, request.password)
         val hash = BCrypt.hashpw(request.password, BCrypt.gensalt())
         val user = userRepository.createUser(request.email, hash)
-        val token = issueToken(user.id, user.email)
-        return AuthResponse(
-            token = token,
-            expiresIn = jwtSettings.expirySeconds,
-            user = UserResponse(email = user.email)
-        )
+        return generateAuthResponse(user.id, user.email)
     }
 
     suspend fun login(request: LoginRequest): AuthResponse {
@@ -37,11 +34,32 @@ class AuthService(
             throw ValidationException("Invalid email or password")
         }
 
-        val token = issueToken(user.id, user.email)
+        return generateAuthResponse(user.id, user.email)
+    }
+
+    suspend fun refreshToken(request: RefreshRequest): AuthResponse {
+        val (token, userId) = userRepository.findRefreshToken(request.refreshToken)
+            ?: throw ValidationException("Invalid or expired refresh token")
+
+        val user = userRepository.findById(userId)
+            ?: throw ValidationException("User not found")
+
+        userRepository.deleteRefreshToken(token)
+        return generateAuthResponse(user.id, user.email)
+    }
+
+    private suspend fun generateAuthResponse(userId: UUID, email: String): AuthResponse {
+        val accessToken = issueToken(userId, email)
+        val refreshToken = UUID.randomUUID().toString()
+        val expiresAt = LocalDateTime.now().plusDays(jwtSettings.refreshExpiryDays)
+
+        userRepository.saveRefreshToken(refreshToken, userId, expiresAt)
+
         return AuthResponse(
-            token = token,
+            token = accessToken,
+            refreshToken = refreshToken,
             expiresIn = jwtSettings.expirySeconds,
-            user = UserResponse(email = user.email)
+            user = UserResponse(email = email)
         )
     }
 
@@ -53,6 +71,7 @@ class AuthService(
             .withAudience(jwtSettings.audience)
             .withSubject(userId.toString())
             .withClaim("email", email)
+            .withClaim("nonce", UUID.randomUUID().toString())
             .withExpiresAt(expiresAt)
             .sign(Algorithm.HMAC256(jwtSettings.secret))
     }

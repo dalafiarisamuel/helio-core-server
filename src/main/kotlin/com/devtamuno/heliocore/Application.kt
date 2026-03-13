@@ -104,6 +104,12 @@ fun Application.module() {
         register(RateLimitName("global")) {
             rateLimiter(limit = 100, refillPeriod = 60.seconds)
         }
+        register(RateLimitName("user")) {
+            rateLimiter(limit = 10, refillPeriod = 60.seconds)
+            requestKey { call ->
+                call.principal<JWTPrincipal>()?.subject ?: call.request.local.remoteAddress
+            }
+        }
     }
 
     install(Authentication) {

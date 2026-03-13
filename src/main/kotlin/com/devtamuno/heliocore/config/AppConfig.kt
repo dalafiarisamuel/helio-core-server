@@ -36,7 +36,8 @@ data class AppConfig(
                 issuer = config.propertyOrNull("app.jwt.issuer")?.getString() ?: "",
                 audience = config.propertyOrNull("app.jwt.audience")?.getString() ?: "",
                 realm = config.propertyOrNull("app.jwt.realm")?.getString() ?: "",
-                expiryMinutes = config.propertyOrNull("app.jwt.expiryMinutes")?.getString()?.toLongOrNull() ?: 60
+                expiryMinutes = config.propertyOrNull("app.jwt.expiryMinutes")?.getString()?.toLongOrNull() ?: 60,
+                refreshExpiryDays = config.propertyOrNull("app.jwt.refreshExpiryDays")?.getString()?.toLongOrNull() ?: 1
             )
 
             return AppConfig(

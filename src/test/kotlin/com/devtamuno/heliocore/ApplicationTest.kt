@@ -27,7 +27,6 @@ import io.ktor.server.auth.jwt.*
 import io.ktor.server.plugins.ratelimit.RateLimit
 import io.ktor.server.plugins.ratelimit.RateLimitName
 import kotlin.time.Duration.Companion.seconds
-import kotlinx.coroutines.runBlocking
 
 class ApplicationTest {
     @Test
@@ -35,6 +34,7 @@ class ApplicationTest {
         application {
             install(RateLimit) {
                 register(RateLimitName("global")) { rateLimiter(limit = 100, refillPeriod = 60.seconds) }
+                register(RateLimitName("user")) { rateLimiter(limit = 100, refillPeriod = 60.seconds) }
             }
             install(ContentNegotiation) { json() }
             val calculator = SolarProductionCalculator()
@@ -53,7 +53,8 @@ class ApplicationTest {
                 issuer = "test-issuer",
                 audience = "test-audience",
                 realm = "test-realm",
-                expiryMinutes = 60
+                expiryMinutes = 60,
+                refreshExpiryDays = 30
             )
             val db = Database.connect("jdbc:h2:mem:app-test;DB_CLOSE_DELAY=-1;", driver = "org.h2.Driver")
             val userRepository = UserRepository(db)

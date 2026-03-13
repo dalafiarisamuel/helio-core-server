@@ -2,8 +2,8 @@ package com.devtamuno.heliocore.routes
 
 import com.devtamuno.heliocore.auth.AuthService
 import com.devtamuno.heliocore.domain.LoginRequest
+import com.devtamuno.heliocore.domain.RefreshRequest
 import com.devtamuno.heliocore.domain.RegisterRequest
-import io.ktor.server.application.call
 import io.ktor.server.auth.authenticate
 import io.ktor.server.auth.jwt.JWTPrincipal
 import io.ktor.server.auth.principal
@@ -26,6 +26,12 @@ fun Route.authRoutes(authService: AuthService) {
         post("/login") {
             val request = call.receive<LoginRequest>()
             val response = authService.login(request)
+            call.respond(response)
+        }
+
+        post("/refresh") {
+            val request = call.receive<RefreshRequest>()
+            val response = authService.refreshToken(request)
             call.respond(response)
         }
 

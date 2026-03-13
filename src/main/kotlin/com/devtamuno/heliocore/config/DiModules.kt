@@ -74,7 +74,8 @@ fun buildAppModules(appConfig: AppConfig): List<Module> {
             issuer = appConfig.jwt.issuer,
             audience = appConfig.jwt.audience,
             realm = appConfig.jwt.realm,
-            expiryMinutes = appConfig.jwt.expiryMinutes
+            expiryMinutes = appConfig.jwt.expiryMinutes,
+            refreshExpiryDays = appConfig.jwt.refreshExpiryDays
         ) }
         single { AuthService(get(), get()) }
     }

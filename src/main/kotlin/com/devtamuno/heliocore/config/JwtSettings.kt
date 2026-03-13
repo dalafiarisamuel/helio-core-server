@@ -5,7 +5,8 @@ data class JwtSettings(
     val issuer: String,
     val audience: String,
     val realm: String,
-    val expiryMinutes: Long
+    val expiryMinutes: Long,
+    val refreshExpiryDays: Long
 ) {
     val expirySeconds: Long = expiryMinutes * 60
 }

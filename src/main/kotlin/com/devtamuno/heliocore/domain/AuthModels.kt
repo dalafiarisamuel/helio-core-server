@@ -18,8 +18,14 @@ data class LoginRequest(
 @Serializable
 data class AuthResponse(
     val token: String,
+    @SerialName("refresh_token") val refreshToken: String,
     @SerialName("expires_in") val expiresIn: Long,
     val user: UserResponse
+)
+
+@Serializable
+data class RefreshRequest(
+    @SerialName("refresh_token") val refreshToken: String
 )
 
 @Serializable

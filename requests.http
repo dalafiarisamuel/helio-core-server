@@ -18,7 +18,26 @@ Content-Type: application/json
   "email": "user@example.com",
   "password": "Passw0rd!"
 }
-> {% client.global.set("jwt", response.body.token); %}
+> {% 
+    client.global.set("jwt", response.body.token); 
+    client.global.set("refresh_token", response.body.refresh_token);
+%}
+
+### Refresh Token
+POST http://localhost:8080/auth/refresh
+Content-Type: application/json
+
+{
+  "refresh_token": "{{refresh_token}}"
+}
+> {% 
+    client.global.set("jwt", response.body.token); 
+    client.global.set("refresh_token", response.body.refresh_token);
+%}
+
+### Get current user details
+GET http://localhost:8080/auth/me
+Authorization: Bearer {{jwt}}
 
 ### Solar potential - Lagos, Nigeria (PVWatts)
 POST http://localhost:8080/solar/potential

@@ -1,8 +1,28 @@
 ### Health
 GET http://localhost:8080/health
 
+### Register user
+POST http://localhost:8080/auth/register
+Content-Type: application/json
+
+{
+  "email": "user@example.com",
+  "password": "Passw0rd!"
+}
+
+### Login user
+POST http://localhost:8080/auth/login
+Content-Type: application/json
+
+{
+  "email": "user@example.com",
+  "password": "Passw0rd!"
+}
+> {% client.global.set("jwt", response.body.token); %}
+
 ### Solar potential - Lagos, Nigeria (PVWatts)
 POST http://localhost:8080/solar/potential
+Authorization: Bearer {{jwt}}
 Content-Type: application/json
 
 {
@@ -16,6 +36,7 @@ Content-Type: application/json
 
 ### Solar estimate - Lagos, Nigeria (uses PVWatts internally)
 POST http://localhost:8080/solar/estimate
+Authorization: Bearer {{jwt}}
 Content-Type: application/json
 
 {
@@ -27,6 +48,7 @@ Content-Type: application/json
 
 ### Solar potential - Port Harcourt, Rivers State (PVWatts)
 POST http://localhost:8080/solar/potential
+Authorization: Bearer {{jwt}}
 Content-Type: application/json
 
 {
@@ -40,6 +62,7 @@ Content-Type: application/json
 
 ### Solar estimate - Port Harcourt, Rivers State (uses PVWatts internally)
 POST http://localhost:8080/solar/estimate
+Authorization: Bearer {{jwt}}
 Content-Type: application/json
 
 {
@@ -51,6 +74,7 @@ Content-Type: application/json
 
 ### Solar potential - Benin City, Edo State (PVWatts)
 POST http://localhost:8080/solar/potential
+Authorization: Bearer {{jwt}}
 Content-Type: application/json
 
 {
@@ -64,6 +88,7 @@ Content-Type: application/json
 
 ### Solar estimate - Benin City, Edo State (uses PVWatts internally)
 POST http://localhost:8080/solar/estimate
+Authorization: Bearer {{jwt}}
 Content-Type: application/json
 
 {
@@ -75,6 +100,7 @@ Content-Type: application/json
 
 ### Solar potential - London, UK (lower solar resource example)
 POST http://localhost:8080/solar/potential
+Authorization: Bearer {{jwt}}
 Content-Type: application/json
 
 {
@@ -88,6 +114,7 @@ Content-Type: application/json
 
 ### Solar estimate - London, UK (lower solar resource example)
 POST http://localhost:8080/solar/estimate
+Authorization: Bearer {{jwt}}
 Content-Type: application/json
 
 {
@@ -101,6 +128,7 @@ Content-Type: application/json
 
 ### Solar forecast - Lagos, Nigeria (Open-Meteo)
 POST http://localhost:8080/solar/forecast
+Authorization: Bearer {{jwt}}
 Content-Type: application/json
 
 {
@@ -112,6 +140,7 @@ Content-Type: application/json
 
 ### Solar forecast - Benin City, Edo State (Open-Meteo)
 POST http://localhost:8080/solar/forecast
+Authorization: Bearer {{jwt}}
 Content-Type: application/json
 
 {

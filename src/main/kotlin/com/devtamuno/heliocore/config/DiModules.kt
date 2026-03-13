@@ -1,5 +1,7 @@
 package com.devtamuno.heliocore.config
 
+import com.devtamuno.heliocore.auth.AuthService
+import com.devtamuno.heliocore.auth.UserRepository
 import com.devtamuno.heliocore.integrations.common.CachingSolarDataProvider
 import com.devtamuno.heliocore.integrations.common.CachingSolarForecastProvider
 import com.devtamuno.heliocore.integrations.common.RedisFactory
@@ -18,9 +20,12 @@ import io.ktor.http.HttpHeaders
 import io.ktor.serialization.kotlinx.json.json
 import io.lettuce.core.api.StatefulRedisConnection
 import kotlinx.serialization.json.Json
+import org.jetbrains.exposed.sql.Database
 import org.koin.core.module.Module
 import org.koin.dsl.module
 import org.slf4j.LoggerFactory
+import com.zaxxer.hikari.HikariConfig
+import com.zaxxer.hikari.HikariDataSource
 
 /**
  * Builds the list of Koin modules for the application.
@@ -51,13 +56,34 @@ fun buildAppModules(appConfig: AppConfig): List<Module> {
         single { SolarProductionCalculator() }
         single { PvWattsClient(appConfig.pvWattsApiKey, get()) }
         single { OpenMeteoForecastClient(get()) }
+        single {
+            HikariDataSource(
+                HikariConfig().apply {
+                    jdbcUrl = appConfig.db.url
+                    username = appConfig.db.user
+                    password = appConfig.db.password
+                    maximumPoolSize = 10
+                    driverClassName = "org.postgresql.Driver"
+                }
+            )
+        }
+        single { Database.connect(get<HikariDataSource>()) }
+        single { UserRepository(get()) }
+        single { JwtSettings(
+            secret = appConfig.jwt.secret,
+            issuer = appConfig.jwt.issuer,
+            audience = appConfig.jwt.audience,
+            realm = appConfig.jwt.realm,
+            expiryMinutes = appConfig.jwt.expiryMinutes
+        ) }
+        single { AuthService(get(), get()) }
     }
 
-    val providers = appConfig.redisUrl?.let { redisUrl ->
+    val providers = appConfig.redis.url?.let { redisUrl ->
         logger.info("Redis URL detected; enabling cached providers via Redis")
         module {
             single<StatefulRedisConnection<String, String>> {
-                RedisFactory.connect(redisUrl, appConfig.redisUsername, appConfig.redisPassword)
+                RedisFactory.connect(redisUrl, appConfig.redis.username, appConfig.redis.password)
             }
             single<SolarDataProvider> {
                 CachingSolarDataProvider(get<PvWattsClient>(), get())

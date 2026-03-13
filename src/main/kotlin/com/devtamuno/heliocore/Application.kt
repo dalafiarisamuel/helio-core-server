@@ -1,6 +1,11 @@
 package com.devtamuno.heliocore
 
+import com.auth0.jwt.JWT
+import com.auth0.jwt.algorithms.Algorithm
+import com.devtamuno.heliocore.auth.AuthService
+import com.devtamuno.heliocore.auth.UserRepository
 import com.devtamuno.heliocore.config.AppConfig
+import com.devtamuno.heliocore.config.JwtSettings
 import com.devtamuno.heliocore.config.buildAppModules
 import com.devtamuno.heliocore.domain.ErrorResponse
 import com.devtamuno.heliocore.domain.ExternalServiceException
@@ -14,6 +19,8 @@ import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpMethod
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.application.*
+import io.ktor.server.auth.*
+import io.ktor.server.auth.jwt.*
 import io.ktor.server.plugins.calllogging.*
 import io.ktor.server.plugins.contentnegotiation.*
 import io.ktor.server.plugins.cors.routing.*
@@ -22,6 +29,7 @@ import io.ktor.server.plugins.statuspages.*
 import io.ktor.server.request.path
 import io.ktor.server.response.*
 import kotlinx.serialization.json.Json
+import kotlinx.coroutines.runBlocking
 import org.koin.ktor.ext.getKoin
 import org.koin.ktor.ext.inject
 import org.koin.ktor.plugin.Koin
@@ -29,6 +37,7 @@ import org.slf4j.event.Level
 import kotlin.time.Duration.Companion.seconds
 import io.lettuce.core.api.StatefulRedisConnection
 import org.koin.logger.slf4jLogger
+import com.zaxxer.hikari.HikariDataSource
 
 fun main(args: Array<String>) {
     io.ktor.server.netty.EngineMain.main(args)
@@ -47,10 +56,17 @@ fun Application.module() {
     val calculator by inject<SolarProductionCalculator>()
     val dataProvider by inject<SolarDataProvider>()
     val forecastProvider by inject<SolarForecastProvider>()
+    val authService by inject<AuthService>()
+    val jwtSettings by inject<JwtSettings>()
+    val dataSource by inject<HikariDataSource>()
+    val userRepository by inject<UserRepository>()
+
+    runBlocking { userRepository.ensureSchema() }
 
     monitor.subscribe(ApplicationStopped) {
         httpClient.close()
         getKoin().getOrNull<StatefulRedisConnection<String, String>>()?.close()
+        dataSource.close()
     }
 
     install(ContentNegotiation) { json(json) }
@@ -90,5 +106,22 @@ fun Application.module() {
         }
     }
 
-    configureRoutes(calculator, dataProvider, forecastProvider)
+    install(Authentication) {
+        jwt("auth-jwt") {
+            realm = jwtSettings.realm
+            verifier(
+                JWT
+                    .require(Algorithm.HMAC256(jwtSettings.secret))
+                    .withAudience(jwtSettings.audience)
+                    .withIssuer(jwtSettings.issuer)
+                    .build()
+            )
+            validate { credential ->
+                val email = credential.payload.getClaim("email").asString()
+                if (!email.isNullOrBlank()) JWTPrincipal(credential.payload) else null
+            }
+        }
+    }
+
+    configureRoutes(calculator, dataProvider, forecastProvider, authService)
 }

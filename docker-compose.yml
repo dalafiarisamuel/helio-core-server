@@ -10,5 +10,31 @@ services:
     command: [ "redis-server", "--appendonly", "yes", "--requirepass", "${REDIS_PASSWORD:-aGVsaW8tcmVkaXMtZGV2}" ]
     volumes:
       - redis-data:/data
+  postgres:
+    image: postgres:16-alpine
+    container_name: helio-postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-heliocore}
+      POSTGRES_USER: ${POSTGRES_USER:-heliocore}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-aGVsaW8tcmVkaXMtZGV2}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+  pgadmin:
+    image: dpage/pgadmin4:8.8
+    container_name: helio-pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL:-admin@heliocore.local}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD:-aGVsaW8tcGdhZG1pbg==}
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+    ports:
+      - "5050:80"
+    depends_on:
+      - postgres
+    volumes:
+      - pgadmin-data:/var/lib/pgadmin
 volumes:
   redis-data:
+  pg-data:
+  pgadmin-data:

@@ -1,92 +1,63 @@
 # HelioCore Server
 
-Ktor-based solar production service with JWT-secured APIs, Postgres-backed users, PVWatts potential, and Open-Meteo forecasts.
+Ktor service that authenticates users with JWT, stores them in Postgres, and delivers solar production estimates, PVWatts potential, and Open‑Meteo forecasts.
 
 ## Overview
 
-HelioCore exposes REST endpoints to:
-
+HelioCore exposes a small REST API to:
 - Register/login users and issue JWTs.
-- Validate and compute solar system capacity and production.
-- Retrieve PVWatts-based potential for a location.
-- Forecast daily solar production (with peak irradiance time and sun window) using Open-Meteo.
-- Provide a simple health check.
+- Validate solar system specs and compute production.
+- Fetch PVWatts potential for a location.
+- Forecast 7‑day solar energy using irradiance-driven weather data.
+- Report service health.
 
 ## Features
 
-- JWT auth with register/login and `/auth/me`.
-- Solar energy estimation with explicit units per field.
-- PVWatts integration for irradiance/potential data.
-- Open-Meteo integration for 7-day production forecasts and sun-window times.
-- Input validation for coordinates, tilt, azimuth, and panel specs.
-- Global rate limiting (100 req / 60s).
-- JSON APIs with kotlinx.serialization.
+- JWT auth (`/auth/register`, `/auth/login`, `/auth/me`)
+- Solar production estimation with explicit units
+- PVWatts potential + AC energy
+- Open‑Meteo 7‑day forecast with peak irradiance window
+- Global rate limiting (100 req / 60s)
+- Optional Redis caching in front of integrations
 
 ## Architecture
 
-- **Ktor server** (`Application.kt`): JSON, logging, CORS, status pages, rate limit, JWT auth, HttpClient timeouts.
-- **Config** (`config/`): env-backed `AppConfig`, `DbConfig`, `JwtConfig`, `RedisConfig`.
-- **Domain models** (`domain/`): requests/responses, measured values, errors, auth DTOs.
-- **Services**: `SolarProductionCalculator`; `AuthService` for register/login + JWT issuance.
-- **Integrations**
-  - `integrations/pvwatts/PvWattsClient`: PVWatts API client (`SolarDataProvider`).
-  - `integrations/forecast/OpenMeteoForecastClient`: Open-Meteo forecast client (`SolarForecastProvider`).
-  - `integrations/common/Providers`: shared provider interfaces and optional Redis caching.
-- **Persistence**: Postgres via Exposed + Hikari (`auth` tables/repository).
-- **Routes** (`routes/`): `/auth`, `/health`, `/solar/*` (estimate, potential, forecast) behind rate limit; `/solar` requires JWT.
-- **Tests**: route tests, calculator tests, forecast client tests (including sun-window handling).
+- **Ktor server**: JSON, logging, CORS, status pages, rate limit, JWT auth, DI wiring.
+- **Domain/Services**: typed DTOs and `SolarProductionCalculator`.
+- **Auth**: `AuthService` + Exposed `UserRepository` on Postgres (Hikari pool).
+- **Integrations**: PVWatts client, Open‑Meteo client, optional Redis cache decorators.
+- **Routes**: `/auth`, `/health`, `/solar/*` (JWT-protected).
 
 ## Project Structure
-
 ```
-src/main/kotlin/com/devtamuno/heliocore/
-  Application.kt
-  config/
-    AppConfig.kt
-    DbConfig.kt
-    JwtConfig.kt
-    RedisConfig.kt
-  domain/
-    AuthModels.kt
-    SolarEstimateRequest.kt
-    SolarPotentialRequest.kt
-    SolarEstimateResponse.kt
-    SolarPotentialResponse.kt
-    SolarForecastModels.kt
-    MeasuredValue.kt
-    Errors.kt
-  services/SolarProductionCalculator.kt
-  auth/
-    AuthService.kt
-    UserRepository.kt
-    model/UserRecord.kt
-    tables/Users.kt
-  integrations/
-    common/Providers.kt
-    pvwatts/PvWattsClient.kt
-    forecast/OpenMeteoForecastClient.kt
-  routes/
-    Routing.kt
-    HealthRoutes.kt
-    SolarRoutes.kt
-    AuthRoutes.kt
-src/main/resources/application.conf
-requests.http
+helio-core
+├─ src/main/kotlin/com/devtamuno/heliocore/
+│  ├─ Application.kt
+│  ├─ config/ (AppConfig, DbConfig, JwtConfig, RedisConfig)
+│  ├─ domain/ (AuthModels, Solar DTOs, Errors, MeasuredValue)
+│  ├─ services/ SolarProductionCalculator.kt
+│  ├─ auth/ (AuthService, UserRepository, model, tables)
+│  ├─ integrations/
+│  │   ├─ pvwatts/ PvWattsClient.kt
+│  │   ├─ forecast/ OpenMeteoForecastClient.kt
+│  │   └─ common/ Providers, RedisCache
+│  └─ routes/ (Routing, AuthRoutes, HealthRoutes, SolarRoutes)
+├─ src/main/resources/ (application.conf, application-prod.conf)
+├─ docker-compose.yml
+└─ requests.http
 ```
 
 ## Installation
-
 ```bash
 ./gradlew clean build
 ```
 
-## Environment Variables
-
-```
+## Environment Variables (.env)
+```env
 PVWATTS_API_KEY=your-nrel-key
 SERVER_PORT=8080
 
-# Redis (optional cache)
+# Redis (optional)
 REDIS_URL=redis://localhost:6379
 REDIS_USERNAME=
 REDIS_PASSWORD=aGVsaW8tcmVkaXMtZGV2
@@ -105,48 +76,104 @@ JWT_EXPIRY_MINUTES=60
 ```
 
 ## Running the Server
-
-Start infra (Redis optional, Postgres + pgAdmin included):
+Start infra (Postgres + pgAdmin + optional Redis):
 ```bash
 docker-compose up -d
 ```
-
-Run the service:
+Run the app:
 ```bash
 ./gradlew run   # binds 0.0.0.0:${SERVER_PORT:-8080}
 ```
 
 ## API Endpoints
 
-All bodies and responses are JSON with explicit units.
+Auth:
+- `POST /auth/register` — create user, returns `{ token, expires_in, user }`
+- `POST /auth/login` — returns `{ token, expires_in, user }`
+- `GET /auth/me` — JWT required, returns `{ user_id, email }`
 
-### Auth
+Health:
+- `GET /health` — `{ "status": "ok" }`
 
-- `POST /auth/register` → `{ token, expires_in, user }`
-- `POST /auth/login` → `{ token, expires_in, user }`
-- `GET /auth/me` (JWT) → `{ user_id, email }`
+Solar (JWT required):
+- `POST /solar/estimate` — production estimate
+- `POST /solar/potential` — PVWatts potential and AC energy
+- `POST /solar/forecast` — 7‑day forecast with peak irradiance window
 
-### Health
+## Curl Examples
 
-- `GET /health` → `{ "status": "ok" }`
+Register:
+```bash
+curl -X POST http://localhost:8080/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"email":"user@example.com","password":"Passw0rd!"}'
+```
 
-### Solar (JWT required)
+Login (capture token):
+```bash
+TOKEN=$(curl -s -X POST http://localhost:8080/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"user@example.com","password":"Passw0rd!"}' | jq -r .token)
+```
 
-- `POST /solar/estimate`
-- `POST /solar/potential`
-- `POST /solar/forecast`
+Health:
+```bash
+curl http://localhost:8080/health
+```
 
-See `requests.http` for ready-to-use bodies and Authorization headers.
+Estimate:
+```bash
+curl -X POST http://localhost:8080/solar/estimate \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"latitude":6.5244,"longitude":3.3792,"panel_wattage":450,"panel_count":12,"panel_tilt":20,"azimuth":180}'
+```
+
+Potential:
+```bash
+curl -X POST http://localhost:8080/solar/potential \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"latitude":6.5244,"longitude":3.3792,"panel_wattage":1000,"panel_count":1,"panel_tilt":20,"azimuth":180}'
+```
+
+Forecast:
+```bash
+curl -X POST http://localhost:8080/solar/forecast \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"latitude":6.5244,"longitude":3.3792,"panel_wattage":450,"panel_count":12}'
+```
+
+## Example Request / Response
+
+`POST /solar/estimate`
+```json
+{
+  "latitude": 6.5244,
+  "longitude": 3.3792,
+  "panel_wattage": 450,
+  "panel_count": 12,
+  "panel_tilt": 20,
+  "azimuth": 180
+}
+```
+```json
+{
+  "system_capacity": { "value": 5.4, "unit": "kW" },
+  "peak_sun_hours": { "value": 5.2, "unit": "hours" },
+  "daily_energy": { "value": 24.4, "unit": "kWh" },
+  "monthly_energy": { "value": 732.0, "unit": "kWh" },
+  "annual_energy": { "value": 8906.0, "unit": "kWh" }
+}
+```
 
 ## Development
-
 - Build: `./gradlew build`
-- Tests: `./gradlew test`
+- Test: `./gradlew test`
 
 ## Future Improvements
-
-- Add configurable forecast horizon and loss factors.
-- Cache PVWatts/Open-Meteo responses to reduce external calls.
-- Add authentication and per-key rate limits.
-- Provide hourly forecast/production breakdowns.
-- Surface validation errors with field-level details.
+- Configurable forecast horizon and loss factors.
+- Default caching for PVWatts/Open‑Meteo responses.
+- Per-user/API-key rate limits and refresh tokens.
+- Hourly forecast/production breakdowns.

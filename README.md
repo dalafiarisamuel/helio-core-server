@@ -1,12 +1,12 @@
 # HelioCore Server
 
-Ktor-based service for estimating solar energy production, proxying PVWatts potential data, and providing Open-Meteo
-forecasts with peak irradiance windows.
+Ktor-based solar production service with JWT-secured APIs, Postgres-backed users, PVWatts potential, and Open-Meteo forecasts.
 
 ## Overview
 
 HelioCore exposes REST endpoints to:
 
+- Register/login users and issue JWTs.
 - Validate and compute solar system capacity and production.
 - Retrieve PVWatts-based potential for a location.
 - Forecast daily solar production (with peak irradiance time and sun window) using Open-Meteo.
@@ -14,6 +14,7 @@ HelioCore exposes REST endpoints to:
 
 ## Features
 
+- JWT auth with register/login and `/auth/me`.
 - Solar energy estimation with explicit units per field.
 - PVWatts integration for irradiance/potential data.
 - Open-Meteo integration for 7-day production forecasts and sun-window times.
@@ -23,16 +24,16 @@ HelioCore exposes REST endpoints to:
 
 ## Architecture
 
-- **Ktor server** (`Application.kt`): configures JSON, logging, CORS, status pages, rate limiting, HttpClient timeouts.
-- **Config** (`AppConfig`): loaded from `application.conf`; fixed 30s HttpClient timeout.
-- **Domain models** (`domain/`): split into requests/responses, measured values, forecast entries, errors.
-- **Services** (`services/SolarProductionCalculator`): validation, capacity, and production calculations (constants in
-  companion).
+- **Ktor server** (`Application.kt`): JSON, logging, CORS, status pages, rate limit, JWT auth, HttpClient timeouts.
+- **Config** (`config/`): env-backed `AppConfig`, `DbConfig`, `JwtConfig`, `RedisConfig`.
+- **Domain models** (`domain/`): requests/responses, measured values, errors, auth DTOs.
+- **Services**: `SolarProductionCalculator`; `AuthService` for register/login + JWT issuance.
 - **Integrations**
-    - `integrations/pvwatts/PvWattsClient`: PVWatts API client, implements `SolarDataProvider`.
-    - `integrations/forecast/OpenMeteoForecastClient`: Open-Meteo forecast client, implements `SolarForecastProvider`.
-    - `integrations/common/Providers`: shared provider interfaces.
-- **Routes** (`routes/`): health, solar estimate, potential, forecast. All under `/solar`, behind global rate limit.
+  - `integrations/pvwatts/PvWattsClient`: PVWatts API client (`SolarDataProvider`).
+  - `integrations/forecast/OpenMeteoForecastClient`: Open-Meteo forecast client (`SolarForecastProvider`).
+  - `integrations/common/Providers`: shared provider interfaces and optional Redis caching.
+- **Persistence**: Postgres via Exposed + Hikari (`auth` tables/repository).
+- **Routes** (`routes/`): `/auth`, `/health`, `/solar/*` (estimate, potential, forecast) behind rate limit; `/solar` requires JWT.
 - **Tests**: route tests, calculator tests, forecast client tests (including sun-window handling).
 
 ## Project Structure
@@ -40,8 +41,13 @@ HelioCore exposes REST endpoints to:
 ```
 src/main/kotlin/com/devtamuno/heliocore/
   Application.kt
-  config/AppConfig.kt
+  config/
+    AppConfig.kt
+    DbConfig.kt
+    JwtConfig.kt
+    RedisConfig.kt
   domain/
+    AuthModels.kt
     SolarEstimateRequest.kt
     SolarPotentialRequest.kt
     SolarEstimateResponse.kt
@@ -50,6 +56,11 @@ src/main/kotlin/com/devtamuno/heliocore/
     MeasuredValue.kt
     Errors.kt
   services/SolarProductionCalculator.kt
+  auth/
+    AuthService.kt
+    UserRepository.kt
+    model/UserRecord.kt
+    tables/Users.kt
   integrations/
     common/Providers.kt
     pvwatts/PvWattsClient.kt
@@ -58,6 +69,7 @@ src/main/kotlin/com/devtamuno/heliocore/
     Routing.kt
     HealthRoutes.kt
     SolarRoutes.kt
+    AuthRoutes.kt
 src/main/resources/application.conf
 requests.http
 ```
@@ -70,162 +82,61 @@ requests.http
 
 ## Environment Variables
 
-Only PVWatts requires a key; server port is optional. Redis (with optional auth) is optional for caching.
-
-Example `.env`:
-
 ```
 PVWATTS_API_KEY=your-nrel-key
 SERVER_PORT=8080
-REDIS_URL=redis://localhost:6379  # optional
-REDIS_USERNAME=default           # optional, matches Redis ACL user
-REDIS_PASSWORD=redispass         # optional, required if Redis is secured
+
+# Redis (optional cache)
+REDIS_URL=redis://localhost:6379
+REDIS_USERNAME=
+REDIS_PASSWORD=aGVsaW8tcmVkaXMtZGV2
+
+# Postgres
+DB_URL=jdbc:postgresql://localhost:5432/heliocore
+DB_USER=heliocore
+DB_PASSWORD=aGVsaW8tcmVkaXMtZGV2
+
+# JWT
+JWT_SECRET=your-secret
+JWT_ISSUER=helio-core
+JWT_AUDIENCE=helio-core-users
+JWT_REALM=helio-core
+JWT_EXPIRY_MINUTES=60
 ```
 
 ## Running the Server
 
+Start infra (Redis optional, Postgres + pgAdmin included):
 ```bash
-./gradlew run   # uses SERVER_PORT or defaults to 8080
+docker-compose up -d
 ```
 
-To start Redis locally (optional cache):
+Run the service:
 ```bash
-REDIS_PASSWORD=redispass docker-compose up -d redis
+./gradlew run   # binds 0.0.0.0:${SERVER_PORT:-8080}
 ```
 
 ## API Endpoints
 
 All bodies and responses are JSON with explicit units.
 
+### Auth
+
+- `POST /auth/register` → `{ token, expires_in, user }`
+- `POST /auth/login` → `{ token, expires_in, user }`
+- `GET /auth/me` (JWT) → `{ user_id, email }`
+
 ### Health
 
 - `GET /health` → `{ "status": "ok" }`
 
-### Solar Estimate
+### Solar (JWT required)
 
 - `POST /solar/estimate`
-
-```json
-{
-  "latitude": 6.5244,
-  "longitude": 3.3792,
-  "panel_wattage": 450,
-  "panel_count": 12,
-  "panel_tilt": 20,
-  "azimuth": 180
-}
-```
-
-**Response**
-
-```json
-{
-  "system_capacity": {
-    "value": 5.4,
-    "unit": "kW"
-  },
-  "peak_sun_hours": {
-    "value": 5.2,
-    "unit": "hours"
-  },
-  "daily_energy": {
-    "value": 24.4,
-    "unit": "kWh"
-  },
-  "monthly_energy": {
-    "value": 732.0,
-    "unit": "kWh"
-  },
-  "annual_energy": {
-    "value": 8906.0,
-    "unit": "kWh"
-  }
-}
-```
-
-### Solar Potential (PVWatts)
-
 - `POST /solar/potential`
-
-```json
-{
-  "latitude": 6.5244,
-  "longitude": 3.3792,
-  "panel_wattage": 1000,
-  "panel_count": 1,
-  "panel_tilt": 20,
-  "azimuth": 180
-}
-```
-
-**Response**
-
-```json
-{
-  "solrad_annual": {
-    "value": 5.1,
-    "unit": "kWh/m²/day"
-  },
-  "ac_monthly": [
-    {
-      "value": 400.0,
-      "unit": "kWh"
-    }
-  ],
-  "ac_annual": {
-    "value": 4800.0,
-    "unit": "kWh"
-  },
-  "panel_wattage": 1000.0,
-  "panel_count": 1
-}
-```
-
-### Solar Forecast (Open-Meteo, 7-day fixed window)
-
 - `POST /solar/forecast`
 
-```json
-{
-  "latitude": 6.5244,
-  "longitude": 3.3792,
-  "panel_wattage": 450,
-  "panel_count": 12
-}
-```
-
-**Response (per day)**
-
-```json
-{
-  "forecasts": [
-    {
-      "date": "2026-03-12",
-      "peak_sun_hours": {
-        "value": 5.0,
-        "unit": "hours"
-      },
-      "expected_energy": {
-        "value": 10.0,
-        "unit": "kWh"
-      },
-      "peak_irradiance_time": "2026-03-12T12:00",
-      "peak_irradiance": {
-        "value": 500.0,
-        "unit": "Wh/m²"
-      },
-      "sun_window_start": "2026-03-12T09:00",
-      "sun_window_end": "2026-03-12T15:00"
-    }
-  ],
-  "panel_wattage": 450.0,
-  "panel_count": 12
-}
-```
-
-## Example Requests
-
-See `requests.http` for ready-to-use samples (Lagos, Port Harcourt, Benin City, London, Benin forecast).
+See `requests.http` for ready-to-use bodies and Authorization headers.
 
 ## Development
 

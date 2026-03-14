@@ -25,7 +25,8 @@ class PvWattsClient(
 
     override suspend fun fetchSolarData(
         request: SolarEstimateRequest,
-        systemCapacityKw: Double
+        systemCapacityKw: Double,
+        userId: String?
     ): SolarPotentialResponse {
         val tilt = request.panelTilt ?: 20.0
         val azimuth = request.azimuth ?: 180.0

@@ -10,6 +10,8 @@ import io.lettuce.core.RedisCredentialsProvider
 import io.lettuce.core.api.StatefulRedisConnection
 import kotlinx.serialization.json.Json
 import kotlinx.coroutines.future.await
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
 import org.slf4j.LoggerFactory
 
 class CachingSolarDataProvider(
@@ -22,10 +24,12 @@ class CachingSolarDataProvider(
 
     override suspend fun fetchSolarData(
         request: SolarEstimateRequest,
-        systemCapacityKw: Double
+        systemCapacityKw: Double,
+        userId: String?
     ): SolarPotentialResponse {
+        val userPrefix = if (userId != null) "u:$userId:" else ""
         val key =
-            "pv:${request.latitude}:${request.longitude}:${request.panelTilt}:${request.azimuth}:${request.panelWattage}:${request.panelCount}"
+            "${userPrefix}${request.date}:pv:${request.latitude}:${request.longitude}:${request.panelTilt}:${request.azimuth}:${request.panelWattage}:${request.panelCount}"
         val commands = connection.async()
         val cached = commands.get(key).await()
         if (cached != null) {
@@ -41,7 +45,7 @@ class CachingSolarDataProvider(
 
         logger.info("Redis cache miss for solar data key={}, fetching delegate", key)
 
-        val fresh = delegate.fetchSolarData(request, systemCapacityKw)
+        val fresh = delegate.fetchSolarData(request, systemCapacityKw, userId)
         commands.setex(key, ttlSeconds, json.encodeToString(fresh))
         logger.info(
             "Redis cache set for solar data key={} ttlSeconds={} acAnnual={} {}",
@@ -62,8 +66,13 @@ class CachingSolarForecastProvider(
     private val json = Json { ignoreUnknownKeys = true }
     private val logger = LoggerFactory.getLogger(CachingSolarForecastProvider::class.java)
 
-    override suspend fun forecast(request: SolarEstimateRequest): SolarForecastResponse {
-        val key = "fc:${request.latitude}:${request.longitude}:${request.panelWattage}:${request.panelCount}"
+    override suspend fun forecast(
+        request: SolarEstimateRequest,
+        userId: String?
+    ): SolarForecastResponse {
+        val userPrefix = if (userId != null) "u:$userId:" else ""
+        val key =
+            "${userPrefix}fc:${request.date}:${request.latitude}:${request.longitude}:${request.panelWattage}:${request.panelCount}"
         val commands = connection.async()
         val cached = commands.get(key).await()
         if (cached != null) {
@@ -79,7 +88,7 @@ class CachingSolarForecastProvider(
 
         logger.info("Redis cache miss for forecast key={}, fetching delegate", key)
 
-        val fresh = delegate.forecast(request)
+        val fresh = delegate.forecast(request, userId)
         commands.setex(key, ttlSeconds, json.encodeToString(fresh))
         logger.info(
             "Redis cache set for forecast key={} ttlSeconds={} days={} avgExpectedEnergy={}",

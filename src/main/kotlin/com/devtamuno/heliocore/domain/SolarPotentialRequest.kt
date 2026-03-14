@@ -10,5 +10,6 @@ data class SolarPotentialRequest(
     @SerialName("panel_wattage") val panelWattage: Double? = null,
     @SerialName("panel_count") val panelCount: Int? = null,
     @SerialName("panel_tilt") val panelTilt: Double? = null,
-    val azimuth: Double? = null
+    val azimuth: Double? = null,
+    val date: String? = null
 )

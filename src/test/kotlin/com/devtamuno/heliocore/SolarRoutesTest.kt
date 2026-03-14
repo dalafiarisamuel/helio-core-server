@@ -83,7 +83,11 @@ class SolarRoutesTest {
             install(Authentication, configure = authCfg)
             val calculator = SolarProductionCalculator()
             val fakeProvider = object : SolarDataProvider {
-                override suspend fun fetchSolarData(request: SolarEstimateRequest, systemCapacityKw: Double): SolarPotentialResponse {
+                override suspend fun fetchSolarData(
+                    request: SolarEstimateRequest,
+                    systemCapacityKw: Double,
+                    userId: String?
+                ): SolarPotentialResponse {
                     return SolarPotentialResponse(
                         solradAnnual = MeasuredValue(4.5, "kWh/m²/day"),
                         acMonthly = emptyList(),
@@ -112,7 +116,8 @@ class SolarRoutesTest {
                     panelWattage = 400.0,
                     panelCount = 10,
                     panelTilt = 20.0,
-                    azimuth = 180.0
+                    azimuth = 180.0,
+                    date = ""
                 )
             )
         }
@@ -137,7 +142,11 @@ class SolarRoutesTest {
             install(Authentication, configure = authCfg)
             val calculator = SolarProductionCalculator()
             val fakeProvider = object : SolarDataProvider {
-                override suspend fun fetchSolarData(request: SolarEstimateRequest, systemCapacityKw: Double): SolarPotentialResponse =
+                override suspend fun fetchSolarData(
+                    request: SolarEstimateRequest,
+                    systemCapacityKw: Double,
+                    userId: String?
+                ): SolarPotentialResponse =
                     SolarPotentialResponse(MeasuredValue(4.5, "kWh/m²/day"), emptyList(), MeasuredValue(0.0, "kWh"), panelWattage = request.panelWattage, panelCount = request.panelCount)
             }
             val db = Database.connect("jdbc:h2:mem:solar-validate;DB_CLOSE_DELAY=-1;", driver = "org.h2.Driver")
@@ -172,7 +181,11 @@ class SolarRoutesTest {
             install(Authentication, configure = authCfg)
             val calculator = SolarProductionCalculator()
             val fakeProvider = object : SolarDataProvider {
-                override suspend fun fetchSolarData(request: SolarEstimateRequest, systemCapacityKw: Double): SolarPotentialResponse =
+                override suspend fun fetchSolarData(
+                    request: SolarEstimateRequest,
+                    systemCapacityKw: Double,
+                    userId: String?
+                ): SolarPotentialResponse =
                     SolarPotentialResponse(
                         solradAnnual = MeasuredValue(5.1, "kWh/m²/day"),
                         acMonthly = listOf(MeasuredValue(400.0, "kWh")),
@@ -197,7 +210,8 @@ class SolarRoutesTest {
                     latitude = 1.0,
                     longitude = 1.0,
                     panelWattage = 1000.0,
-                    panelCount = 1
+                    panelCount = 1,
+                    date = ""
                 )
             )
         }
@@ -223,7 +237,11 @@ class SolarRoutesTest {
             install(Authentication, configure = authCfg)
             val calculator = SolarProductionCalculator()
             val fakeData = object : SolarDataProvider {
-                override suspend fun fetchSolarData(request: SolarEstimateRequest, systemCapacityKw: Double): SolarPotentialResponse =
+                override suspend fun fetchSolarData(
+                    request: SolarEstimateRequest,
+                    systemCapacityKw: Double,
+                    userId: String?
+                ): SolarPotentialResponse =
                     SolarPotentialResponse(
                         solradAnnual = MeasuredValue(5.0, "kWh/m²/day"),
                         acMonthly = emptyList(),
@@ -233,7 +251,10 @@ class SolarRoutesTest {
                     )
             }
             val fakeForecast = object : SolarForecastProvider {
-                override suspend fun forecast(request: SolarEstimateRequest): SolarForecastResponse =
+                override suspend fun forecast(
+                    request: SolarEstimateRequest,
+                    userId: String?
+                ): SolarForecastResponse =
                     SolarForecastResponse(
                         forecasts = listOf(
                             SolarForecastEntry(
@@ -266,7 +287,8 @@ class SolarRoutesTest {
                     latitude = 1.0,
                     longitude = 1.0,
                     panelWattage = 400.0,
-                    panelCount = 10
+                    panelCount = 10,
+                    date = ""
                 )
             )
         }
@@ -280,4 +302,50 @@ class SolarRoutesTest {
         assertEquals(400.0, body.panelWattage)
         assertEquals(10, body.panelCount)
     }
+    @Test
+    fun `potential endpoint works without providing date`() = testApplication {
+        val jwtSettings = jwtSettings()
+        val (authCfg, token) = authConfig(jwtSettings)
+        application {
+            install(RateLimit) {
+                register(RateLimitName("global")) { rateLimiter(limit = 100, refillPeriod = 60.seconds) }
+                register(RateLimitName("user")) { rateLimiter(limit = 100, refillPeriod = 60.seconds) }
+            }
+            install(io.ktor.server.plugins.contentnegotiation.ContentNegotiation) { json(json) }
+            install(Authentication, configure = authCfg)
+            val calculator = SolarProductionCalculator()
+            val fakeProvider = object : SolarDataProvider {
+                override suspend fun fetchSolarData(
+                    request: SolarEstimateRequest,
+                    systemCapacityKw: Double,
+                    userId: String?
+                ): SolarPotentialResponse =
+                    SolarPotentialResponse(
+                        solradAnnual = MeasuredValue(5.1, "kWh/m²/day"),
+                        acMonthly = listOf(MeasuredValue(400.0, "kWh")),
+                        acAnnual = MeasuredValue(4800.0, "kWh"),
+                        panelWattage = request.panelWattage,
+                        panelCount = request.panelCount
+                    )
+            }
+            val db = Database.connect("jdbc:h2:mem:solar-no-date;DB_CLOSE_DELAY=-1;", driver = "org.h2.Driver")
+            val userRepository = UserRepository(db)
+            userRepository.ensureSchema()
+            val authService = AuthService(userRepository, jwtSettings)
+            configureRoutes(calculator, fakeProvider, solarForecastProvider = null, authService = authService)
+        }
+
+        val client = createClient { install(ContentNegotiation) { json(json) } }
+        val response = client.post("/solar/potential") {
+            contentType(ContentType.Application.Json)
+            header("Authorization", "Bearer $token")
+            // Sending JSON without the "date" field
+            setBody("""{"latitude": 1.0, "longitude": 1.0, "panel_wattage": 400, "panel_count": 10}""")
+        }
+
+        assertEquals(HttpStatusCode.OK, response.status)
+        val body: SolarPotentialResponse = response.body()
+        assertEquals(400.0, body.panelWattage)
+    }
+
 }

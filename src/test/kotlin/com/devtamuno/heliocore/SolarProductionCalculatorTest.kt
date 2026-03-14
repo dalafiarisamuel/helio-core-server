@@ -20,7 +20,8 @@ class SolarProductionCalculatorTest {
             panelWattage = 500.0,
             panelCount = 8,
             panelTilt = 25.0,
-            azimuth = 180.0
+            azimuth = 180.0,
+            date = "2026-03-14"
         )
 
         val result = calculator.calculate(request, peakSunHours = 5.0)
@@ -40,7 +41,8 @@ class SolarProductionCalculatorTest {
             panelWattage = 1000.0,
             panelCount = 1,
             panelTilt = 20.0,
-            azimuth = 180.0
+            azimuth = 180.0,
+            date = "2026-03-14"
         )
 
         val result = calculatorWithLosses.calculate(request, peakSunHours = 5.0)
@@ -59,7 +61,8 @@ class SolarProductionCalculatorTest {
             panelWattage = 400.0,
             panelCount = 4,
             panelTilt = 95.0,
-            azimuth = 180.0
+            azimuth = 180.0,
+            date = "2026-03-14"
         )
 
         assertFailsWith<ValidationException> {

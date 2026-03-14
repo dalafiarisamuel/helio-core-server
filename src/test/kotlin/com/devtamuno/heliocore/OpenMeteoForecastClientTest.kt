@@ -56,7 +56,8 @@ class OpenMeteoForecastClientTest {
             panelWattage = 500.0,
             panelCount = 4,
             panelTilt = null,
-            azimuth = null
+            azimuth = null,
+            date = "2026-03-14"
         )
 
         val result = runBlocking { forecastClient.forecast(request) }
@@ -83,7 +84,7 @@ class OpenMeteoForecastClientTest {
         }
 
         val forecastClient = OpenMeteoForecastClient(client, forecastDays = 1)
-        val request = SolarEstimateRequest(0.0, 0.0, 400.0, 4)
+        val request = SolarEstimateRequest(0.0, 0.0, 400.0, 4, date = "2026-03-14")
 
         val thrown: Throwable? = runCatching { runBlocking { forecastClient.forecast(request) } }.exceptionOrNull()
         assertTrue(thrown is ExternalServiceException)
@@ -109,7 +110,7 @@ class OpenMeteoForecastClientTest {
         }
 
         val forecastClient = OpenMeteoForecastClient(client, forecastDays = 1)
-        val request = SolarEstimateRequest(0.0, 0.0, 400.0, 4)
+        val request = SolarEstimateRequest(0.0, 0.0, 400.0, 4, date = "2026-03-14")
 
         val result = runBlocking { forecastClient.forecast(request) }
         assertEquals(1, result.forecasts.size)

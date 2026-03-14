@@ -39,7 +39,11 @@ class ApplicationTest {
             install(ContentNegotiation) { json() }
             val calculator = SolarProductionCalculator()
             val fakeProvider = object : SolarDataProvider {
-                override suspend fun fetchSolarData(request: SolarEstimateRequest, systemCapacityKw: Double): SolarPotentialResponse =
+                override suspend fun fetchSolarData(
+                    request: SolarEstimateRequest,
+                    systemCapacityKw: Double,
+                    userId: String?
+                ): SolarPotentialResponse =
                     SolarPotentialResponse(
                         solradAnnual = MeasuredValue(5.0, "kWh/m²/day"),
                         acMonthly = emptyList(),

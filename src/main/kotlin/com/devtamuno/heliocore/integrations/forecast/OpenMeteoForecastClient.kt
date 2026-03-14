@@ -28,7 +28,10 @@ class OpenMeteoForecastClient(
 ) : SolarForecastProvider {
     private val logger = LoggerFactory.getLogger(OpenMeteoForecastClient::class.java)
 
-    override suspend fun forecast(request: SolarEstimateRequest): SolarForecastResponse {
+    override suspend fun forecast(
+        request: SolarEstimateRequest,
+        userId: String?
+    ): SolarForecastResponse {
         logger.info("Calling Open-Meteo forecast: lat={}, lon={}, days={}", request.latitude, request.longitude, forecastDays)
         val response = client.get("https://api.open-meteo.com/v1/forecast") {
             parameter("latitude", request.latitude)

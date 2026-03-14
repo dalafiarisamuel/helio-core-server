@@ -1,8 +1,8 @@
 package com.devtamuno.heliocore
 
-import com.devtamuno.heliocore.domain.SolarEstimateRequest
 import com.devtamuno.heliocore.domain.ValidationException
-import com.devtamuno.heliocore.services.SolarProductionCalculator
+import com.devtamuno.heliocore.features.solar.domain.SolarEstimateRequest
+import com.devtamuno.heliocore.features.solar.service.SolarProductionCalculator
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue

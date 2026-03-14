@@ -23,25 +23,37 @@ HelioCore exposes a small REST API to:
 ## Architecture
 
 - **Ktor server**: JSON, logging, CORS, status pages, rate limit, JWT auth, DI wiring.
-- **Domain/Services**: typed DTOs and `SolarProductionCalculator`.
-- **Auth**: `AuthService` + Exposed `UserRepository` on Postgres (Hikari pool).
+- **Features**:
+  - **Auth**: JWT authentication, user registration, profile management.
+  - **Solar**: Production estimation, PVWatts integration, Open-Meteo forecasts, user solar configurations.
+  - **Shared**: Common web utilities, health checks, routing.
 - **Integrations**: PVWatts client, Open‑Meteo client, optional Redis cache decorators.
-- **Routes**: `/auth`, `/health`, `/solar/*` (JWT-protected).
+- **Domain/Services**: Typed DTOs, business logic, and `SolarProductionCalculator`.
 
 ## Project Structure
 ```
 helio-core
 ├─ src/main/kotlin/com/devtamuno/heliocore/
 │  ├─ Application.kt
-│  ├─ config/ (AppConfig, DbConfig, JwtConfig, RedisConfig)
-│  ├─ domain/ (AuthModels, Solar DTOs, Errors, MeasuredValue)
-│  ├─ services/ SolarProductionCalculator.kt
-│  ├─ auth/ (AuthService, UserRepository, model, tables)
-│  ├─ integrations/
-│  │   ├─ pvwatts/ PvWattsClient.kt
-│  │   ├─ forecast/ OpenMeteoForecastClient.kt
-│  │   └─ common/ Providers, RedisCache
-│  └─ routes/ (Routing, AuthRoutes, HealthRoutes, SolarRoutes)
+│  ├─ config/ (AppConfig, DbConfig, JwtConfig, RedisConfig, DiModules)
+│  ├─ domain/ (Errors, MeasuredValue)
+│  ├─ features/
+│  │   ├─ auth/
+│  │   │   ├─ data/ (UserRepository, tables)
+│  │   │   ├─ domain/ (AuthModels, UserRecord)
+│  │   │   ├─ service/ (AuthService)
+│  │   │   └─ web/ (AuthRoutes)
+│  │   ├─ solar/
+│  │   │   ├─ data/ (SolarConfigRepository, tables)
+│  │   │   ├─ domain/ (SolarConfig, SolarForecastModels, DTOs)
+│  │   │   ├─ service/ (SolarProductionCalculator, SolarConfigService, SolarValidator)
+│  │   │   └─ web/ (SolarRoutes, SolarConfigRoutes)
+│  │   └─ shared/
+│  │       └─ web/ (Routing, HealthRoutes, DevRoutes, RouteUtils)
+│  └─ integrations/
+│      ├─ pvwatts/ PvWattsClient.kt
+│      ├─ forecast/ OpenMeteoForecastClient.kt
+│      └─ common/ Providers, RedisCache
 ├─ src/main/resources/ (application.conf, application-prod.conf)
 ├─ docker-compose.yml
 └─ requests.http
@@ -101,8 +113,23 @@ Run the app:
 - `POST /auth/refresh` — Refresh expired JWT.
   - **Request:** `{"refresh_token": "..."}`
   - **Response:** Same as login.
-- `GET /auth/me` — Get current user details (JWT required).
-  - **Response:** `{ "email": "user@example.com" }`
+- `GET /auth/profile` — Get current user details (JWT required).
+  - **Response:** `{ "id": "...", "email": "user@example.com", "first_name": "...", "last_name": "...", "configs": [...] }`
+- `PATCH /auth/profile` — Update user profile (JWT required).
+  - **Request:** `{"first_name": "Updated", "last_name": "Name"}`
+
+### Curl Examples (Auth Profile)
+**Get Profile:**
+```bash
+curl -H "Authorization: Bearer $TOKEN" http://localhost:8080/auth/profile
+```
+**Update Profile:**
+```bash
+curl -X PATCH http://localhost:8080/auth/profile \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"first_name": "Updated", "last_name": "Name"}'
+```
 
 ### Solar (JWT Protected)
 - `POST /solar/estimate` — General production estimate.
@@ -154,8 +181,25 @@ Run the app:
       "panel_count": 12
     }
     ```
+- `GET /solar/configs` — List user's solar configurations.
+- `POST /solar/configs` — Create a new solar configuration.
+- `PUT /solar/configs/{id}` — Update a solar configuration.
+- `DELETE /solar/configs/{id}` — Delete a solar configuration.
 
-## Curl Examples
+### Curl Examples (Solar Configs)
+**List Configs:**
+```bash
+curl -H "Authorization: Bearer $TOKEN" http://localhost:8080/solar/configs
+```
+**Create Config:**
+```bash
+curl -X POST http://localhost:8080/solar/configs \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"name": "Home", "latitude": 6.5244, "longitude": 3.3792, "panel_wattage": 450, "panel_count": 12}'
+```
+
+## Core API Curl Examples
 
 ### Health
 ```bash

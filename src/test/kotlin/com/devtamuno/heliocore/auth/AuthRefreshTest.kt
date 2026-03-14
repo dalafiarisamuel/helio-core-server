@@ -1,33 +1,37 @@
 package com.devtamuno.heliocore.auth
 
+import com.auth0.jwt.JWT
+import com.auth0.jwt.algorithms.Algorithm
 import com.devtamuno.heliocore.config.JwtSettings
-import com.devtamuno.heliocore.domain.LoginRequest
-import com.devtamuno.heliocore.domain.RefreshRequest
-import com.devtamuno.heliocore.domain.RegisterRequest
-import com.devtamuno.heliocore.domain.UpdateUserRequest
+import com.devtamuno.heliocore.domain.ErrorResponse
+import com.devtamuno.heliocore.domain.UnauthorizedException
+import com.devtamuno.heliocore.domain.ValidationException
+import com.devtamuno.heliocore.features.auth.data.UserRepository
+import com.devtamuno.heliocore.features.auth.domain.*
+import com.devtamuno.heliocore.features.auth.service.AuthService
+import com.devtamuno.heliocore.features.auth.web.authRoutes
+import com.devtamuno.heliocore.features.solar.data.SolarConfigRepository
+import com.devtamuno.heliocore.features.solar.service.SolarConfigService
+import com.devtamuno.heliocore.features.solar.domain.SolarConfigRequest
+import com.devtamuno.heliocore.features.solar.web.solarConfigRoutes
 import io.ktor.client.call.*
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation as ClientContentNegotiation
 import io.ktor.client.request.*
 import io.ktor.http.*
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.application.install
-import io.ktor.server.response.respond
 import io.ktor.server.auth.*
 import io.ktor.server.auth.jwt.JWTPrincipal
 import io.ktor.server.auth.jwt.jwt
-import io.ktor.server.routing.routing
 import io.ktor.server.plugins.contentnegotiation.ContentNegotiation as ServerContentNegotiation
 import io.ktor.server.plugins.statuspages.StatusPages
+import io.ktor.server.response.respond
+import io.ktor.server.routing.routing
 import io.ktor.server.testing.*
 import kotlinx.serialization.json.Json
 import org.jetbrains.exposed.sql.Database
 import kotlin.test.*
-import com.devtamuno.heliocore.routes.authRoutes
-import com.devtamuno.heliocore.routes.solarConfigRoutes
 import io.ktor.serialization.kotlinx.json.json as serverJson
-import com.auth0.jwt.JWT
-import com.auth0.jwt.algorithms.Algorithm
-import com.devtamuno.heliocore.services.SolarConfigService
 
 class AuthRefreshTest {
 
@@ -46,7 +50,7 @@ class AuthRefreshTest {
     fun `test register login and refresh token`() = testApplication {
         val db = Database.connect("jdbc:h2:mem:auth-test;DB_CLOSE_DELAY=-1;", driver = "org.h2.Driver")
         val userRepository = UserRepository(db)
-        val solarConfigRepository = com.devtamuno.heliocore.repository.SolarConfigRepository(db)
+        val solarConfigRepository = SolarConfigRepository(db)
         val solarConfigService = SolarConfigService(solarConfigRepository)
         userRepository.ensureSchema()
         solarConfigRepository.ensureSchema()
@@ -55,11 +59,11 @@ class AuthRefreshTest {
         application {
             install(ServerContentNegotiation) { serverJson(json) }
             install(StatusPages) {
-                exception<com.devtamuno.heliocore.domain.ValidationException> { call, cause ->
-                    call.respond(HttpStatusCode.BadRequest, com.devtamuno.heliocore.domain.ErrorResponse(cause.message ?: "Validation error"))
+                exception<ValidationException> { call, cause ->
+                    call.respond(HttpStatusCode.BadRequest, ErrorResponse(cause.message ?: "Validation error"))
                 }
-                exception<com.devtamuno.heliocore.domain.UnauthorizedException> { call, cause ->
-                    call.respond(HttpStatusCode.Unauthorized, com.devtamuno.heliocore.domain.ErrorResponse(cause.message ?: "Unauthorized"))
+                exception<UnauthorizedException> { call, cause ->
+                    call.respond(HttpStatusCode.Unauthorized, ErrorResponse(cause.message ?: "Unauthorized"))
                 }
             }
             install(Authentication) {
@@ -92,7 +96,7 @@ class AuthRefreshTest {
             setBody(RegisterRequest("test@example.com", "password123", "Test", "User"))
         }
         assertEquals(HttpStatusCode.OK, regResponse.status)
-        val regAuth = regResponse.body<com.devtamuno.heliocore.domain.AuthResponse>()
+        val regAuth = regResponse.body<AuthResponse>()
         assertNotNull(regAuth.refreshToken)
 
         // 2. Login
@@ -101,7 +105,7 @@ class AuthRefreshTest {
             setBody(LoginRequest("test@example.com", "password123"))
         }
         assertEquals(HttpStatusCode.OK, loginResponse.status)
-        val loginAuth = loginResponse.body<com.devtamuno.heliocore.domain.AuthResponse>()
+        val loginAuth = loginResponse.body<AuthResponse>()
         assertNotNull(loginAuth.refreshToken)
 
         // 3. Refresh
@@ -110,7 +114,7 @@ class AuthRefreshTest {
             setBody(RefreshRequest(loginAuth.refreshToken))
         }
         assertEquals(HttpStatusCode.OK, refreshResponse.status)
-        val refreshAuth = refreshResponse.body<com.devtamuno.heliocore.domain.AuthResponse>()
+        val refreshAuth = refreshResponse.body<AuthResponse>()
         assertNotEquals(loginAuth.token, refreshAuth.token)
         assertNotEquals(loginAuth.refreshToken, refreshAuth.refreshToken)
 
@@ -119,7 +123,7 @@ class AuthRefreshTest {
             header(HttpHeaders.Authorization, "Bearer ${refreshAuth.token}")
         }
         assertEquals(HttpStatusCode.OK, profileResponse.status)
-        val profileUser = profileResponse.body<com.devtamuno.heliocore.domain.UserResponse>()
+        val profileUser = profileResponse.body<UserResponse>()
         assertEquals("test@example.com", profileUser.email)
         assertEquals("Test", profileUser.firstName)
         assertEquals("User", profileUser.lastName)
@@ -131,7 +135,7 @@ class AuthRefreshTest {
         client.post("/solar/configs") {
             header(HttpHeaders.Authorization, "Bearer ${refreshAuth.token}")
             contentType(ContentType.Application.Json)
-            setBody(com.devtamuno.heliocore.domain.SolarConfigRequest(
+            setBody(SolarConfigRequest(
                 latitude = 40.7128,
                 longitude = -74.0060,
                 panelWattage = 300.0,
@@ -144,7 +148,7 @@ class AuthRefreshTest {
         val profileWithConfigsResponse = client.get("/auth/profile") {
             header(HttpHeaders.Authorization, "Bearer ${refreshAuth.token}")
         }
-        val profileWithConfigs = profileWithConfigsResponse.body<com.devtamuno.heliocore.domain.UserResponse>()
+        val profileWithConfigs = profileWithConfigsResponse.body<UserResponse>()
         assertEquals(1, profileWithConfigs.configs.size)
         assertEquals(40.7128, profileWithConfigs.configs[0].latitude)
 
@@ -155,7 +159,7 @@ class AuthRefreshTest {
             setBody(UpdateUserRequest(firstName = "NewName", lastName = "NewSurname"))
         }
         assertEquals(HttpStatusCode.OK, updateResponse.status)
-        val updatedUser = updateResponse.body<com.devtamuno.heliocore.domain.UserResponse>()
+        val updatedUser = updateResponse.body<UserResponse>()
         assertEquals("NewName", updatedUser.firstName)
         assertEquals("NewSurname", updatedUser.lastName)
         assertEquals("test@example.com", updatedUser.email) // Email stays same
@@ -172,7 +176,7 @@ class AuthRefreshTest {
     fun `test unauthorized access should return 401 with friendly message`() = testApplication {
         val db = Database.connect("jdbc:h2:mem:auth-unauth-test;DB_CLOSE_DELAY=-1;", driver = "org.h2.Driver")
         val userRepository = UserRepository(db)
-        val solarConfigRepository = com.devtamuno.heliocore.repository.SolarConfigRepository(db)
+        val solarConfigRepository = SolarConfigRepository(db)
         val solarConfigService = SolarConfigService(solarConfigRepository)
         userRepository.ensureSchema()
         solarConfigRepository.ensureSchema()

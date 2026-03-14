@@ -2,9 +2,9 @@ package com.devtamuno.heliocore.integrations.forecast
 
 import com.devtamuno.heliocore.domain.ExternalServiceException
 import com.devtamuno.heliocore.domain.MeasuredValue
-import com.devtamuno.heliocore.domain.SolarEstimateRequest
-import com.devtamuno.heliocore.domain.SolarForecastEntry
-import com.devtamuno.heliocore.domain.SolarForecastResponse
+import com.devtamuno.heliocore.features.solar.domain.SolarEstimateRequest
+import com.devtamuno.heliocore.features.solar.domain.SolarForecastEntry
+import com.devtamuno.heliocore.features.solar.domain.SolarForecastResponse
 import com.devtamuno.heliocore.integrations.common.SolarForecastProvider
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body

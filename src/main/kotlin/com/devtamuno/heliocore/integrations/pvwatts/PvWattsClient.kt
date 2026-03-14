@@ -2,9 +2,9 @@ package com.devtamuno.heliocore.integrations.pvwatts
 
 import com.devtamuno.heliocore.domain.ExternalServiceException
 import com.devtamuno.heliocore.domain.MeasuredValue
-import com.devtamuno.heliocore.domain.MonthlySolarData
-import com.devtamuno.heliocore.domain.SolarPotentialResponse
-import com.devtamuno.heliocore.domain.SolarEstimateRequest
+import com.devtamuno.heliocore.features.solar.domain.MonthlySolarData
+import com.devtamuno.heliocore.features.solar.domain.SolarPotentialResponse
+import com.devtamuno.heliocore.features.solar.domain.SolarEstimateRequest
 import com.devtamuno.heliocore.integrations.common.SolarDataProvider
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body

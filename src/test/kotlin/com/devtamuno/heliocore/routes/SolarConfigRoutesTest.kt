@@ -3,12 +3,16 @@ package com.devtamuno.heliocore.routes
 import com.auth0.jwt.JWT
 import com.auth0.jwt.algorithms.Algorithm
 import com.devtamuno.heliocore.config.JwtSettings
-import com.devtamuno.heliocore.domain.SolarConfigRequest
-import com.devtamuno.heliocore.domain.SolarConfigResponse
-import com.devtamuno.heliocore.domain.SuccessResponse
-import com.devtamuno.heliocore.auth.UserRepository
-import com.devtamuno.heliocore.repository.SolarConfigRepository
-import com.devtamuno.heliocore.services.SolarConfigService
+import com.devtamuno.heliocore.domain.ErrorResponse
+import com.devtamuno.heliocore.features.solar.domain.SuccessResponse
+import com.devtamuno.heliocore.domain.ValidationException
+import com.devtamuno.heliocore.features.auth.data.UserRepository
+import com.devtamuno.heliocore.features.solar.data.SolarConfigRepository
+import com.devtamuno.heliocore.features.solar.domain.SolarConfigRequest
+import com.devtamuno.heliocore.features.solar.domain.SolarConfigResponse
+import com.devtamuno.heliocore.features.solar.service.SolarConfigService
+import com.devtamuno.heliocore.features.solar.web.solarConfigRoutes
+
 import io.ktor.client.call.*
 import io.ktor.client.plugins.contentnegotiation.*
 import io.ktor.client.request.*

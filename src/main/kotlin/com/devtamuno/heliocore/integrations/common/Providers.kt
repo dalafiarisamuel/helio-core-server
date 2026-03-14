@@ -1,8 +1,8 @@
 package com.devtamuno.heliocore.integrations.common
 
-import com.devtamuno.heliocore.domain.SolarEstimateRequest
-import com.devtamuno.heliocore.domain.SolarForecastResponse
-import com.devtamuno.heliocore.domain.SolarPotentialResponse
+import com.devtamuno.heliocore.features.solar.domain.SolarEstimateRequest
+import com.devtamuno.heliocore.features.solar.domain.SolarForecastResponse
+import com.devtamuno.heliocore.features.solar.domain.SolarPotentialResponse
 
 interface SolarDataProvider {
     suspend fun fetchSolarData(

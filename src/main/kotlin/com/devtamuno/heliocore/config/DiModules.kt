@@ -1,9 +1,10 @@
 package com.devtamuno.heliocore.config
 
-import com.devtamuno.heliocore.auth.AuthService
-import com.devtamuno.heliocore.auth.UserRepository
-import com.devtamuno.heliocore.repository.SolarConfigRepository
-import com.devtamuno.heliocore.services.SolarConfigService
+import com.devtamuno.heliocore.features.auth.data.UserRepository
+import com.devtamuno.heliocore.features.auth.service.AuthService
+import com.devtamuno.heliocore.features.solar.data.SolarConfigRepository
+import com.devtamuno.heliocore.features.solar.service.SolarConfigService
+import com.devtamuno.heliocore.features.solar.service.SolarProductionCalculator
 import com.devtamuno.heliocore.integrations.common.CachingSolarDataProvider
 import com.devtamuno.heliocore.integrations.common.CachingSolarForecastProvider
 import com.devtamuno.heliocore.integrations.common.RedisFactory
@@ -11,7 +12,6 @@ import com.devtamuno.heliocore.integrations.common.SolarDataProvider
 import com.devtamuno.heliocore.integrations.common.SolarForecastProvider
 import com.devtamuno.heliocore.integrations.forecast.OpenMeteoForecastClient
 import com.devtamuno.heliocore.integrations.pvwatts.PvWattsClient
-import com.devtamuno.heliocore.services.SolarProductionCalculator
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.cio.CIO
 import io.ktor.client.plugins.HttpTimeout

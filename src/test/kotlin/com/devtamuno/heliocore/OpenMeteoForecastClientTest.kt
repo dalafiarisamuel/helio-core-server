@@ -1,8 +1,8 @@
 package com.devtamuno.heliocore
 
-import com.devtamuno.heliocore.domain.SolarEstimateRequest
-import com.devtamuno.heliocore.domain.SolarForecastEntry
 import com.devtamuno.heliocore.domain.ExternalServiceException
+import com.devtamuno.heliocore.features.solar.domain.SolarEstimateRequest
+import com.devtamuno.heliocore.features.solar.domain.SolarForecastEntry
 import com.devtamuno.heliocore.integrations.forecast.OpenMeteoForecastClient
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine

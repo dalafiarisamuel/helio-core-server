@@ -5,21 +5,21 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.serialization.kotlinx.json.json
-import com.devtamuno.heliocore.domain.MeasuredValue
-import com.devtamuno.heliocore.domain.MonthlySolarData
-import com.devtamuno.heliocore.domain.SolarPotentialResponse
-import com.devtamuno.heliocore.domain.SolarEstimateRequest
-import com.devtamuno.heliocore.routes.configureRoutes
-import com.devtamuno.heliocore.services.SolarProductionCalculator
-import com.devtamuno.heliocore.integrations.common.SolarDataProvider
-import com.devtamuno.heliocore.auth.AuthService
-import com.devtamuno.heliocore.auth.UserRepository
-import com.devtamuno.heliocore.config.JwtSettings
 import com.auth0.jwt.JWT
 import com.auth0.jwt.algorithms.Algorithm
+import com.devtamuno.heliocore.config.JwtSettings
+import com.devtamuno.heliocore.domain.MeasuredValue
+import com.devtamuno.heliocore.features.auth.data.UserRepository
+import com.devtamuno.heliocore.features.auth.service.AuthService
+import com.devtamuno.heliocore.features.shared.web.configureRoutes
+import com.devtamuno.heliocore.features.solar.data.SolarConfigRepository
+import com.devtamuno.heliocore.features.solar.domain.MonthlySolarData
+import com.devtamuno.heliocore.features.solar.domain.SolarEstimateRequest
+import com.devtamuno.heliocore.features.solar.domain.SolarPotentialResponse
+import com.devtamuno.heliocore.features.solar.service.SolarConfigService
+import com.devtamuno.heliocore.features.solar.service.SolarProductionCalculator
+import com.devtamuno.heliocore.integrations.common.SolarDataProvider
 import org.jetbrains.exposed.sql.Database
-import com.devtamuno.heliocore.services.SolarConfigService
-import com.devtamuno.heliocore.repository.SolarConfigRepository
 import io.ktor.client.request.get
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation as ClientContentNegotiation
 import io.ktor.serialization.kotlinx.json.json as clientJson

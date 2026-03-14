@@ -2,6 +2,8 @@ package com.devtamuno.heliocore.config
 
 import com.devtamuno.heliocore.auth.AuthService
 import com.devtamuno.heliocore.auth.UserRepository
+import com.devtamuno.heliocore.repository.SolarConfigRepository
+import com.devtamuno.heliocore.services.SolarConfigService
 import com.devtamuno.heliocore.integrations.common.CachingSolarDataProvider
 import com.devtamuno.heliocore.integrations.common.CachingSolarForecastProvider
 import com.devtamuno.heliocore.integrations.common.RedisFactory
@@ -72,8 +74,8 @@ fun buildAppModules(appConfig: AppConfig): List<Module> {
                     maxLifetime = 1800000 // 30 minutes
                     
                     // Diagnostic and validation settings
-                    keepaliveTime = 60000 // 1 minute
-                    leakDetectionThreshold = 10000 // 10 seconds
+                    keepaliveTime = 30000 // 30 seconds
+                    leakDetectionThreshold = 60000 // 60 seconds
                     validationTimeout = 5000 // 5 seconds
                 }
             )
@@ -89,6 +91,8 @@ fun buildAppModules(appConfig: AppConfig): List<Module> {
             refreshExpiryDays = appConfig.jwt.refreshExpiryDays
         ) }
         single { AuthService(get(), get()) }
+        single { SolarConfigRepository(get()) }
+        single { SolarConfigService(get()) }
     }
 
     val providers = appConfig.redis.url?.let { redisUrl ->

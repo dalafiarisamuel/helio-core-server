@@ -18,6 +18,8 @@ import com.devtamuno.heliocore.config.JwtSettings
 import com.auth0.jwt.JWT
 import com.auth0.jwt.algorithms.Algorithm
 import org.jetbrains.exposed.sql.Database
+import com.devtamuno.heliocore.services.SolarConfigService
+import com.devtamuno.heliocore.repository.SolarConfigRepository
 import io.ktor.client.request.get
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation as ClientContentNegotiation
 import io.ktor.serialization.kotlinx.json.json as clientJson
@@ -63,8 +65,11 @@ class ApplicationTest {
             )
             val db = Database.connect("jdbc:h2:mem:app-test;DB_CLOSE_DELAY=-1;", driver = "org.h2.Driver")
             val userRepository = UserRepository(db)
+            val solarConfigRepository = SolarConfigRepository(db)
             userRepository.ensureSchema()
+            solarConfigRepository.ensureSchema()
             val authService = AuthService(userRepository, jwtSettings)
+            val solarConfigService = SolarConfigService(solarConfigRepository)
             install(Authentication) {
                 jwt("auth-jwt") {
                     realm = jwtSettings.realm
@@ -78,7 +83,15 @@ class ApplicationTest {
                     validate { credential -> JWTPrincipal(credential.payload) }
                 }
             }
-            configureRoutes(calculator, fakeProvider, solarForecastProvider = null, authService = authService)
+            configureRoutes(
+                calculator,
+                fakeProvider,
+                solarForecastProvider = null,
+                authService = authService,
+                solarConfigService = solarConfigService,
+                userRepository = userRepository,
+                solarConfigRepository = solarConfigRepository
+            )
         }
 
         val client = createClient { install(ClientContentNegotiation) { clientJson() } }

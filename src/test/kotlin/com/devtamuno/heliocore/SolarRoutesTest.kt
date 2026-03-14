@@ -5,6 +5,8 @@ import com.auth0.jwt.algorithms.Algorithm
 import com.devtamuno.heliocore.auth.AuthService
 import com.devtamuno.heliocore.auth.UserRepository
 import com.devtamuno.heliocore.config.JwtSettings
+import com.devtamuno.heliocore.services.SolarConfigService
+import com.devtamuno.heliocore.repository.SolarConfigRepository
 import com.devtamuno.heliocore.domain.*
 import com.devtamuno.heliocore.integrations.common.SolarDataProvider
 import com.devtamuno.heliocore.integrations.common.SolarForecastProvider
@@ -52,6 +54,7 @@ class SolarRoutesTest {
         val token = JWT.create()
             .withAudience(jwtSettings.audience)
             .withIssuer(jwtSettings.issuer)
+            .withSubject("550e8400-e29b-41d4-a716-446655440000")
             .withClaim("email", "user@example.com")
             .sign(Algorithm.HMAC256(jwtSettings.secret))
         val config: AuthenticationConfig.() -> Unit = {
@@ -99,9 +102,20 @@ class SolarRoutesTest {
             }
             val db = Database.connect("jdbc:h2:mem:solar-estimate;DB_CLOSE_DELAY=-1;", driver = "org.h2.Driver")
             val userRepository = UserRepository(db)
+            val solarConfigRepository = SolarConfigRepository(db)
             userRepository.ensureSchema()
+            solarConfigRepository.ensureSchema()
             val authService = AuthService(userRepository, jwtSettings)
-            configureRoutes(calculator, fakeProvider, solarForecastProvider = null, authService = authService)
+            val solarConfigService = SolarConfigService(solarConfigRepository)
+            configureRoutes(
+                calculator,
+                fakeProvider,
+                solarForecastProvider = null,
+                authService = authService,
+                solarConfigService = solarConfigService,
+                userRepository = userRepository,
+                solarConfigRepository = solarConfigRepository
+            )
         }
 
         val client = createClient { install(ContentNegotiation) { json(json) } }
@@ -151,9 +165,20 @@ class SolarRoutesTest {
             }
             val db = Database.connect("jdbc:h2:mem:solar-validate;DB_CLOSE_DELAY=-1;", driver = "org.h2.Driver")
             val userRepository = UserRepository(db)
+            val solarConfigRepository = SolarConfigRepository(db)
             userRepository.ensureSchema()
+            solarConfigRepository.ensureSchema()
             val authService = AuthService(userRepository, jwtSettings)
-            configureRoutes(calculator, fakeProvider, solarForecastProvider = null, authService = authService)
+            val solarConfigService = SolarConfigService(solarConfigRepository)
+            configureRoutes(
+                calculator,
+                fakeProvider,
+                solarForecastProvider = null,
+                authService = authService,
+                solarConfigService = solarConfigService,
+                userRepository = userRepository,
+                solarConfigRepository = solarConfigRepository
+            )
         }
 
         val client = createClient { install(ContentNegotiation) { json(json) } }
@@ -196,9 +221,20 @@ class SolarRoutesTest {
             }
             val db = Database.connect("jdbc:h2:mem:solar-potential;DB_CLOSE_DELAY=-1;", driver = "org.h2.Driver")
             val userRepository = UserRepository(db)
+            val solarConfigRepository = SolarConfigRepository(db)
             userRepository.ensureSchema()
+            solarConfigRepository.ensureSchema()
             val authService = AuthService(userRepository, jwtSettings)
-            configureRoutes(calculator, fakeProvider, solarForecastProvider = null, authService = authService)
+            val solarConfigService = SolarConfigService(solarConfigRepository)
+            configureRoutes(
+                calculator,
+                fakeProvider,
+                solarForecastProvider = null,
+                authService = authService,
+                solarConfigService = solarConfigService,
+                userRepository = userRepository,
+                solarConfigRepository = solarConfigRepository
+            )
         }
 
         val client = createClient { install(ContentNegotiation) { json(json) } }
@@ -274,9 +310,20 @@ class SolarRoutesTest {
             }
             val db = Database.connect("jdbc:h2:mem:solar-forecast;DB_CLOSE_DELAY=-1;", driver = "org.h2.Driver")
             val userRepository = UserRepository(db)
+            val solarConfigRepository = SolarConfigRepository(db)
             userRepository.ensureSchema()
+            solarConfigRepository.ensureSchema()
             val authService = AuthService(userRepository, jwtSettings)
-            configureRoutes(calculator, fakeData, solarForecastProvider = fakeForecast, authService = authService)
+            val solarConfigService = SolarConfigService(solarConfigRepository)
+            configureRoutes(
+                calculator,
+                fakeData,
+                solarForecastProvider = fakeForecast,
+                authService = authService,
+                solarConfigService = solarConfigService,
+                userRepository = userRepository,
+                solarConfigRepository = solarConfigRepository
+            )
         }
 
         val client = createClient { install(ContentNegotiation) { json(json) } }
@@ -331,9 +378,20 @@ class SolarRoutesTest {
             }
             val db = Database.connect("jdbc:h2:mem:solar-no-date;DB_CLOSE_DELAY=-1;", driver = "org.h2.Driver")
             val userRepository = UserRepository(db)
+            val solarConfigRepository = SolarConfigRepository(db)
             userRepository.ensureSchema()
+            solarConfigRepository.ensureSchema()
             val authService = AuthService(userRepository, jwtSettings)
-            configureRoutes(calculator, fakeProvider, solarForecastProvider = null, authService = authService)
+            val solarConfigService = SolarConfigService(solarConfigRepository)
+            configureRoutes(
+                calculator,
+                fakeProvider,
+                solarForecastProvider = null,
+                authService = authService,
+                solarConfigService = solarConfigService,
+                userRepository = userRepository,
+                solarConfigRepository = solarConfigRepository
+            )
         }
 
         val client = createClient { install(ContentNegotiation) { json(json) } }

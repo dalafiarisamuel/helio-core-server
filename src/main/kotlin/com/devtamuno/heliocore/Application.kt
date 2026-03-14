@@ -4,12 +4,15 @@ import com.auth0.jwt.JWT
 import com.auth0.jwt.algorithms.Algorithm
 import com.devtamuno.heliocore.auth.AuthService
 import com.devtamuno.heliocore.auth.UserRepository
+import com.devtamuno.heliocore.repository.SolarConfigRepository
+import com.devtamuno.heliocore.services.SolarConfigService
 import com.devtamuno.heliocore.config.AppConfig
 import com.devtamuno.heliocore.config.JwtSettings
 import com.devtamuno.heliocore.config.buildAppModules
 import com.devtamuno.heliocore.domain.ErrorResponse
 import com.devtamuno.heliocore.domain.ExternalServiceException
 import com.devtamuno.heliocore.domain.ValidationException
+import com.devtamuno.heliocore.domain.UnauthorizedException
 import com.devtamuno.heliocore.integrations.common.SolarDataProvider
 import com.devtamuno.heliocore.integrations.common.SolarForecastProvider
 import com.devtamuno.heliocore.routes.configureRoutes
@@ -57,12 +60,15 @@ fun Application.module() {
     val dataProvider by inject<SolarDataProvider>()
     val forecastProvider by inject<SolarForecastProvider>()
     val authService by inject<AuthService>()
+    val solarConfigService by inject<SolarConfigService>()
     val jwtSettings by inject<JwtSettings>()
     val dataSource by inject<HikariDataSource>()
     val userRepository by inject<UserRepository>()
+    val solarConfigRepository by inject<SolarConfigRepository>()
 
     launch {
         userRepository.ensureSchema()
+        solarConfigRepository.ensureSchema()
     }
 
     monitor.subscribe(ApplicationStopped) {
@@ -89,6 +95,12 @@ fun Application.module() {
     install(StatusPages) {
         exception<ValidationException> { call, cause ->
             call.respond(io.ktor.http.HttpStatusCode.BadRequest, ErrorResponse(cause.message ?: "Invalid request"))
+        }
+        exception<UnauthorizedException> { call, cause ->
+            call.respond(
+                io.ktor.http.HttpStatusCode.Unauthorized,
+                ErrorResponse(cause.message ?: "Unauthorized")
+            )
         }
         exception<ExternalServiceException> { call, cause ->
             call.respond(
@@ -131,5 +143,13 @@ fun Application.module() {
         }
     }
 
-    configureRoutes(calculator, dataProvider, forecastProvider, authService)
+    configureRoutes(
+        calculator,
+        dataProvider,
+        forecastProvider,
+        authService,
+        solarConfigService,
+        userRepository,
+        solarConfigRepository
+    )
 }

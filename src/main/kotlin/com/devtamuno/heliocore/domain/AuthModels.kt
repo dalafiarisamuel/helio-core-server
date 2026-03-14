@@ -6,7 +6,9 @@ import kotlinx.serialization.Serializable
 @Serializable
 data class RegisterRequest(
     val email: String,
-    val password: String
+    val password: String,
+    @SerialName("first_name") val firstName: String? = null,
+    @SerialName("last_name") val lastName: String? = null
 )
 
 @Serializable
@@ -19,8 +21,7 @@ data class LoginRequest(
 data class AuthResponse(
     val token: String,
     @SerialName("refresh_token") val refreshToken: String,
-    @SerialName("expires_in") val expiresIn: Long,
-    val user: UserResponse
+    @SerialName("expires_in") val expiresIn: Long
 )
 
 @Serializable
@@ -30,5 +31,16 @@ data class RefreshRequest(
 
 @Serializable
 data class UserResponse(
-    val email: String
+    val id: String,
+    val email: String,
+    @SerialName("first_name") val firstName: String?,
+    @SerialName("last_name") val lastName: String?,
+    @SerialName("created_at") val createdAt: String,
+    val configs: List<SolarConfigResponse> = emptyList()
+)
+
+@Serializable
+data class UpdateUserRequest(
+    @SerialName("first_name") val firstName: String? = null,
+    @SerialName("last_name") val lastName: String? = null
 )

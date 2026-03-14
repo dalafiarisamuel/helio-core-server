@@ -7,6 +7,8 @@ import java.util.UUID
 data class UserRecord(
     val id: UUID,
     val email: String,
+    val firstName: String?,
+    val lastName: String?,
     val passwordHash: String,
     val createdAt: LocalDateTime
 )

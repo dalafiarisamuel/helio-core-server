@@ -3,22 +3,19 @@ package com.devtamuno.heliocore.services
 import com.devtamuno.heliocore.domain.MeasuredValue
 import com.devtamuno.heliocore.domain.SolarEstimateRequest
 import com.devtamuno.heliocore.domain.SolarEstimateResponse
-import com.devtamuno.heliocore.domain.ValidationException
-import kotlin.math.round
+import com.devtamuno.heliocore.domain.SolarValidator
 
 class SolarProductionCalculator(private val defaultSystemLosses: Double = DEFAULT_SYSTEM_LOSSES) {
 
     fun validate(request: SolarEstimateRequest) {
-        if (request.latitude !in MIN_LAT..MAX_LAT) throw ValidationException("Latitude must be between -90 and 90")
-        if (request.longitude !in MIN_LON..MAX_LON) throw ValidationException("Longitude must be between -180 and 180")
-        if (request.panelWattage <= 0) throw ValidationException("panel_wattage must be positive")
-        if (request.panelCount <= 0) throw ValidationException("panel_count must be positive")
-        request.panelTilt?.let { tilt ->
-            if (tilt !in MIN_TILT..MAX_TILT) throw ValidationException("panel_tilt must be between 0 and 90 degrees")
-        }
-        request.azimuth?.let { azimuth ->
-            if (azimuth !in MIN_AZIMUTH..MAX_AZIMUTH) throw ValidationException("azimuth must be between 0 and 360 degrees")
-        }
+        SolarValidator.validate(
+            latitude = request.latitude,
+            longitude = request.longitude,
+            panelWattage = request.panelWattage,
+            panelCount = request.panelCount,
+            panelTilt = request.panelTilt,
+            azimuth = request.azimuth
+        )
     }
 
     fun systemCapacityKw(request: SolarEstimateRequest): Double =
@@ -51,14 +48,6 @@ class SolarProductionCalculator(private val defaultSystemLosses: Double = DEFAUL
         const val DEFAULT_SYSTEM_LOSSES = 0.14
         const val DAYS_PER_MONTH = 30
         const val DAYS_PER_YEAR = 365
-        const val MIN_LAT = -90.0
-        const val MAX_LAT = 90.0
-        const val MIN_LON = -180.0
-        const val MAX_LON = 180.0
-        const val MIN_TILT = 0.0
-        const val MAX_TILT = 90.0
-        const val MIN_AZIMUTH = 0.0
-        const val MAX_AZIMUTH = 360.0
         const val WATTS_PER_KILOWATT = 1000.0
     }
 }

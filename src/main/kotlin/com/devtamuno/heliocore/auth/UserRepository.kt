@@ -13,6 +13,7 @@ import org.jetbrains.exposed.sql.and
 import org.jetbrains.exposed.sql.deleteWhere
 import org.jetbrains.exposed.sql.insert
 import org.jetbrains.exposed.sql.selectAll
+import org.jetbrains.exposed.sql.update
 import org.jetbrains.exposed.sql.transactions.experimental.newSuspendedTransaction
 import java.time.LocalDateTime
 import java.util.UUID
@@ -25,7 +26,12 @@ class UserRepository(private val db: Database) {
         }
     }
 
-    suspend fun createUser(email: String, passwordHash: String): UserRecord {
+    suspend fun createUser(
+        email: String,
+        passwordHash: String,
+        firstName: String? = null,
+        lastName: String? = null
+    ): UserRecord {
         val normalizedEmail = email.trim().lowercase()
         val existing = findByEmail(normalizedEmail)
         if (existing != null) throw ValidationException("Email already registered")
@@ -36,10 +42,12 @@ class UserRepository(private val db: Database) {
             Users.insert {
                 it[Users.id] = id
                 it[Users.email] = normalizedEmail
+                it[Users.firstName] = firstName
+                it[Users.lastName] = lastName
                 it[Users.passwordHash] = passwordHash
                 it[Users.createdAt] = now
             }
-            UserRecord(id, normalizedEmail, passwordHash, now)
+            UserRecord(id, normalizedEmail, firstName, lastName, passwordHash, now)
         }
     }
 
@@ -89,9 +97,19 @@ class UserRepository(private val db: Database) {
         }
     }
 
+    suspend fun updateUser(id: UUID, firstName: String?, lastName: String?): Int =
+        newSuspendedTransaction(Dispatchers.IO, db) {
+            Users.update({ Users.id eq id }) {
+                it[Users.firstName] = firstName
+                it[Users.lastName] = lastName
+            }
+        }
+
     private fun ResultRow.toUserRecord() = UserRecord(
         id = this[Users.id].value,
         email = this[Users.email],
+        firstName = this[Users.firstName],
+        lastName = this[Users.lastName],
         passwordHash = this[Users.passwordHash],
         createdAt = this[Users.createdAt]
     )

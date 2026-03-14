@@ -7,7 +7,6 @@ import com.devtamuno.heliocore.integrations.common.SolarDataProvider
 import com.devtamuno.heliocore.integrations.common.SolarForecastProvider
 import com.devtamuno.heliocore.services.SolarProductionCalculator
 import io.ktor.server.auth.*
-import io.ktor.server.auth.jwt.*
 import io.ktor.server.plugins.ratelimit.RateLimitName
 import io.ktor.server.plugins.ratelimit.rateLimit
 import io.ktor.server.request.receive
@@ -27,8 +26,7 @@ fun Route.solarRoutes(
         authenticate("auth-jwt") {
             rateLimit(RateLimitName("user")) {
                 post("/estimate") {
-                    val principal = call.principal<JWTPrincipal>()
-                    val userId = principal?.subject
+                    val userId = call.userId.toString()
                     val currentDate = LocalDate.now().format(DateTimeFormatter.ISO_DATE)
                     val body = call.receive<SolarEstimateRequest>()
                     val request = body.copy(date = body.date ?: currentDate)
@@ -40,8 +38,7 @@ fun Route.solarRoutes(
                 }
 
                 post("/forecast") {
-                    val principal = call.principal<JWTPrincipal>()
-                    val userId = principal?.subject
+                    val userId = call.userId.toString()
                     val provider = solarForecastProvider ?: throw ValidationException("Forecast provider not configured")
                     val currentDate = LocalDate.now().format(DateTimeFormatter.ISO_DATE)
                     val body = call.receive<SolarPotentialRequest>()
@@ -53,8 +50,7 @@ fun Route.solarRoutes(
                 }
 
                 post("/potential") {
-                    val principal = call.principal<JWTPrincipal>()
-                    val userId = principal?.subject
+                    val userId = call.userId.toString()
                     val currentDate = LocalDate.now().format(DateTimeFormatter.ISO_DATE)
                     val body = call.receive<SolarPotentialRequest>()
                     val requestWithDate = body.copy(date = body.date ?: currentDate)

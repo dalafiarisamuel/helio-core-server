@@ -13,12 +13,12 @@ HelioCore exposes a small REST API to:
 
 ## Features
 
-- JWT auth (`/auth/register`, `/auth/login`, `/auth/me`)
+- JWT auth and refresh tokens (`/auth/register`, `/auth/login`, `/auth/refresh`, `/auth/me`)
 - Solar production estimation with explicit units
 - PVWatts potential + AC energy
 - Open‑Meteo 7‑day forecast with peak irradiance window
 - Global rate limiting (100 req / 60s)
-- Optional Redis caching in front of integrations
+- Default Redis caching for PVWatts and Open-Meteo (per-user)
 
 ## Architecture
 
@@ -87,49 +87,109 @@ Run the app:
 
 ## API Endpoints
 
-Auth:
-- `POST /auth/register` — create user, returns `{ token, expires_in, user }`
-- `POST /auth/login` — returns `{ token, expires_in, user }`
-- `GET /auth/me` — JWT required, returns `{ user_id, email }`
+### Health
+- `GET /health` — Check service status.
+  - **Response:** `{ "status": "ok" }`
 
-Health:
-- `GET /health` — `{ "status": "ok" }`
+### Auth
+- `POST /auth/register` — Create a new user.
+  - **Request:** `{"email":"user@example.com","password":"Passw0rd!"}`
+  - **Response:** `{ "token": "...", "refresh_token": "...", "expires_in": 3600, "user": { "email": "user@example.com" } }`
+- `POST /auth/login` — Authenticate and receive JWT.
+  - **Request:** `{"email":"user@example.com","password":"Passw0rd!"}`
+  - **Response:** `{ "token": "...", "refresh_token": "...", "expires_in": 3600, "user": { "email": "user@example.com" } }`
+- `POST /auth/refresh` — Refresh expired JWT.
+  - **Request:** `{"refresh_token": "..."}`
+  - **Response:** Same as login.
+- `GET /auth/me` — Get current user details (JWT required).
+  - **Response:** `{ "email": "user@example.com" }`
 
-Solar (JWT required):
-- `POST /solar/estimate` — production estimate
-- `POST /solar/potential` — PVWatts potential and AC energy
-- `POST /solar/forecast` — 7‑day forecast with peak irradiance window
+### Solar (JWT Protected)
+- `POST /solar/estimate` — General production estimate.
+  - **Request:** `{"latitude":6.5244,"longitude":3.3792,"panel_wattage":450,"panel_count":12}`
+  - **Response:**
+    ```json
+    {
+      "system_capacity": { "value": 5.4, "unit": "kW" },
+      "peak_sun_hours": { "value": 5.2, "unit": "hours" },
+      "daily_energy": { "value": 24.4, "unit": "kWh" },
+      "monthly_energy": { "value": 732.0, "unit": "kWh" },
+      "annual_energy": { "value": 8906.0, "unit": "kWh" }
+    }
+    ```
+- `POST /solar/potential` — Detailed PVWatts potential.
+  - **Request:** `{"latitude":6.5244,"longitude":3.3792,"panel_wattage":1000,"panel_count":1}`
+  - **Response:**
+    ```json
+    {
+      "solrad_annual": { "value": 5.63, "unit": "kWh/m2/day" },
+      "ac_monthly": [ { "value": 130.5, "unit": "kWh" }, ... ],
+      "ac_annual": { "value": 1540.2, "unit": "kWh" },
+      "panel_wattage": 1000.0,
+      "panel_count": 1
+    }
+    ```
+- `POST /solar/forecast` — 7-day weather-driven forecast.
+  - **Request:** `{"latitude":6.5244,"longitude":3.3792,"panel_wattage":450,"panel_count":12}`
+  - **Response:**
+    ```json
+    {
+      "forecasts": [
+        {
+          "date": "2026-03-14",
+          "peak_sun_hours": { "value": 5.1, "unit": "hours" },
+          "expected_energy": { "value": 27.5, "unit": "kWh" },
+          "peak_irradiance_time": "2026-03-14T12:00:00",
+          "peak_irradiance": { "value": 950.0, "unit": "W/m2" },
+          "sun_window_start": "07:00",
+          "sun_window_end": "18:30"
+        }
+      ],
+      "panel_wattage": 450.0,
+      "panel_count": 12
+    }
+    ```
 
 ## Curl Examples
 
-Register:
+### Health
+```bash
+curl http://localhost:8080/health
+```
+
+### Authentication
+**Register:**
 ```bash
 curl -X POST http://localhost:8080/auth/register \
   -H "Content-Type: application/json" \
   -d '{"email":"user@example.com","password":"Passw0rd!"}'
 ```
 
-Login (capture token):
+**Login:**
 ```bash
 TOKEN=$(curl -s -X POST http://localhost:8080/auth/login \
   -H "Content-Type: application/json" \
   -d '{"email":"user@example.com","password":"Passw0rd!"}' | jq -r .token)
 ```
 
-Health:
+**Refresh Token:**
 ```bash
-curl http://localhost:8080/health
+curl -X POST http://localhost:8080/auth/refresh \
+  -H "Content-Type: application/json" \
+  -d '{"refresh_token":"$REFRESH_TOKEN"}'
 ```
 
-Estimate:
+### Solar Operations (JWT required)
+
+**Estimate:**
 ```bash
 curl -X POST http://localhost:8080/solar/estimate \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{"latitude":6.5244,"longitude":3.3792,"panel_wattage":450,"panel_count":12,"panel_tilt":20,"azimuth":180}'
+  -d '{"latitude":6.5244,"longitude":3.3792,"panel_wattage":450,"panel_count":12}'
 ```
 
-Potential:
+**Potential:**
 ```bash
 curl -X POST http://localhost:8080/solar/potential \
   -H "Authorization: Bearer $TOKEN" \
@@ -137,7 +197,7 @@ curl -X POST http://localhost:8080/solar/potential \
   -d '{"latitude":6.5244,"longitude":3.3792,"panel_wattage":1000,"panel_count":1,"panel_tilt":20,"azimuth":180}'
 ```
 
-Forecast:
+**Forecast:**
 ```bash
 curl -X POST http://localhost:8080/solar/forecast \
   -H "Authorization: Bearer $TOKEN" \
@@ -174,6 +234,4 @@ curl -X POST http://localhost:8080/solar/forecast \
 
 ## Future Improvements
 - Configurable forecast horizon and loss factors.
-- Default caching for PVWatts/Open‑Meteo responses.
-- Per-user/API-key rate limits and refresh tokens.
 - Hourly forecast/production breakdowns.

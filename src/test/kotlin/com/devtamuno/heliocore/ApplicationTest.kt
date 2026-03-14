@@ -49,7 +49,7 @@ class ApplicationTest {
                 ): SolarPotentialResponse =
                     SolarPotentialResponse(
                         solradAnnual = MeasuredValue(5.0, "kWh/m²/day"),
-                        acMonthly = listOf(MonthlySolarData("January", MeasuredValue(0.0, "kWh"))),
+                        acMonthly = mapOf("january" to MonthlySolarData(MeasuredValue(0.0, "kWh"))),
                         acAnnual = MeasuredValue(0.0, "kWh"),
                         panelWattage = request.panelWattage,
                         panelCount = request.panelCount

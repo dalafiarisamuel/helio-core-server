@@ -93,7 +93,7 @@ class SolarRoutesTest {
                 ): SolarPotentialResponse {
                     return SolarPotentialResponse(
                         solradAnnual = MeasuredValue(4.5, "kWh/m²/day"),
-                        acMonthly = emptyList(),
+                        acMonthly = emptyMap(),
                         acAnnual = MeasuredValue(0.0, "kWh"),
                         panelWattage = request.panelWattage,
                         panelCount = request.panelCount
@@ -161,7 +161,7 @@ class SolarRoutesTest {
                     systemCapacityKw: Double,
                     userId: String?
                 ): SolarPotentialResponse =
-                    SolarPotentialResponse(MeasuredValue(4.5, "kWh/m²/day"), emptyList(), MeasuredValue(0.0, "kWh"), panelWattage = request.panelWattage, panelCount = request.panelCount)
+                    SolarPotentialResponse(MeasuredValue(4.5, "kWh/m²/day"), emptyMap(), MeasuredValue(0.0, "kWh"), panelWattage = request.panelWattage, panelCount = request.panelCount)
             }
             val db = Database.connect("jdbc:h2:mem:solar-validate;DB_CLOSE_DELAY=-1;", driver = "org.h2.Driver")
             val userRepository = UserRepository(db)
@@ -213,7 +213,7 @@ class SolarRoutesTest {
                 ): SolarPotentialResponse =
                     SolarPotentialResponse(
                         solradAnnual = MeasuredValue(MeasuredValue.roundToDecimals(5.1), "kWh/m²/day"),
-                        acMonthly = listOf(MonthlySolarData("January", MeasuredValue(MeasuredValue.roundToDecimals(400.0), "kWh"))),
+                        acMonthly = mapOf("january" to MonthlySolarData(MeasuredValue(MeasuredValue.roundToDecimals(400.0), "kWh"))),
                         acAnnual = MeasuredValue(MeasuredValue.roundToDecimals(4800.0), "kWh"),
                         panelWattage = request.panelWattage,
                         panelCount = request.panelCount
@@ -255,8 +255,8 @@ class SolarRoutesTest {
         assertEquals(HttpStatusCode.OK, response.status)
         val body: SolarPotentialResponse = response.body()
         assertEquals("kWh/m²/day", body.solradAnnual.unit)
-        assertEquals("January", body.acMonthly.first().month)
-        assertTrue(body.acMonthly.first().data.value > 0)
+        assertTrue(body.acMonthly.containsKey("january"))
+        assertTrue(body.acMonthly["january"]!!.data.value > 0)
         assertEquals(1000.0, body.panelWattage)
         assertEquals(1, body.panelCount)
     }
@@ -281,7 +281,7 @@ class SolarRoutesTest {
                 ): SolarPotentialResponse =
                     SolarPotentialResponse(
                         solradAnnual = MeasuredValue(5.0, "kWh/m²/day"),
-                        acMonthly = emptyList(),
+                        acMonthly = emptyMap(),
                         acAnnual = MeasuredValue(0.0, "kWh"),
                         panelWattage = request.panelWattage,
                         panelCount = request.panelCount
@@ -371,7 +371,7 @@ class SolarRoutesTest {
                 ): SolarPotentialResponse =
                     SolarPotentialResponse(
                         solradAnnual = MeasuredValue(MeasuredValue.roundToDecimals(5.1), "kWh/m²/day"),
-                        acMonthly = listOf(MonthlySolarData("January", MeasuredValue(MeasuredValue.roundToDecimals(400.0), "kWh"))),
+                        acMonthly = mapOf("january" to MonthlySolarData(MeasuredValue(MeasuredValue.roundToDecimals(400.0), "kWh"))),
                         acAnnual = MeasuredValue(MeasuredValue.roundToDecimals(4800.0), "kWh"),
                         panelWattage = request.panelWattage,
                         panelCount = request.panelCount

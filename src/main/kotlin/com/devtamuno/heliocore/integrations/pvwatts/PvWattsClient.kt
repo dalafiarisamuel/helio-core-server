@@ -76,18 +76,18 @@ class PvWattsClient(
         )
 
         val monthNames = listOf(
-            "January", "February", "March", "April", "May", "June",
-            "July", "August", "September", "October", "November", "December"
+            "january", "february", "march", "april", "may", "june",
+            "july", "august", "september", "october", "november", "december"
         )
 
         return SolarPotentialResponse(
             solradAnnual = MeasuredValue(MeasuredValue.roundToDecimals(outputs.solarRadAnnual), "kWh/m²/day"),
             acMonthly = outputs.acMonthly.mapIndexed { index, value ->
-                MonthlySolarData(
-                    month = monthNames.getOrElse(index) { "Unknown" },
+                val month = monthNames.getOrElse(index) { "unknown" }
+                month to MonthlySolarData(
                     data = MeasuredValue(MeasuredValue.roundToDecimals(value), "kWh")
                 )
-            },
+            }.toMap(),
             acAnnual = MeasuredValue(MeasuredValue.roundToDecimals(outputs.acAnnual), "kWh"),
             panelWattage = request.panelWattage,
             panelCount = request.panelCount

@@ -12,7 +12,7 @@ data class SolarForecastEntry(
     @SerialName("peak_irradiance") val peakIrradiance: MeasuredValue,
     @SerialName("sun_window_start") val sunWindowStart: String,
     @SerialName("sun_window_end") val sunWindowEnd: String,
-    @SerialName("weather_condition") val weatherCondition: String
+    @SerialName("weather_condition") val weatherCondition: String = "cloudy"
 )
 
 @Serializable

@@ -30,11 +30,16 @@ class OpenMeteoForecastClient(
         request: SolarEstimateRequest,
         userId: String?
     ): SolarForecastResponse {
-        logger.info("Calling Open-Meteo forecast: lat={}, lon={}, days={}", request.latitude, request.longitude, forecastDays)
+        logger.info(
+            "Calling Open-Meteo forecast: lat={}, lon={}, days={}",
+            request.latitude,
+            request.longitude,
+            forecastDays
+        )
         val response = client.get("https://api.open-meteo.com/v1/forecast") {
             parameter("latitude", request.latitude)
             parameter("longitude", request.longitude)
-            parameter("hourly", "shortwave_radiation")
+            parameter("hourly", "shortwave_radiation,weather_code")
             parameter("forecast_days", forecastDays)
             parameter("timezone", "UTC")
         }
@@ -50,19 +55,27 @@ class OpenMeteoForecastClient(
         }
 
         val capacityKw = (request.panelWattage * request.panelCount) / 1000.0
-        val grouped = hours.time.zip(hours.shortwaveRadiation)
+        val grouped = hours.time.indices.map { i ->
+            Triple(hours.time[i], hours.shortwaveRadiation[i], hours.weatherCode[i])
+        }
             .groupBy { parseDate(it.first) }
             .toSortedMap()
 
         val entries = grouped.entries.take(forecastDays).map { (date, values) ->
             val dailyWhPerM2 = values.sumOf { it.second } // shortwave_radiation is Wh/m2 for the hour window
-            val (peakTimeIso, peakIrradiance) = values.maxByOrNull { it.second } ?: ("" to 0.0)
+            val (peakTimeIso, peakIrradiance, _) = values.maxByOrNull { it.second } ?: Triple("", 0.0, 0)
             val threshold = peakIrradiance * 0.2
             val windowTimes = values.filter { it.second >= threshold }.map { it.first }
             val windowStart = windowTimes.minOrNull().orEmpty()
             val windowEnd = windowTimes.maxOrNull().orEmpty()
             val peakSunHours = dailyWhPerM2 / 1000.0
             val expectedEnergy = capacityKw * peakSunHours * (1 - defaultLosses)
+
+            // Determine daily weatherCondition by taking the most frequent weather code during daylight (when irradiance > 0)
+            // or just use the code at peak irradiance for simplicity and relevance to solar.
+            val peakWeatherCode = values.maxByOrNull { it.second }?.third ?: 0
+            val condition = mapWeatherCodeToCondition(peakWeatherCode)
+
             SolarForecastEntry(
                 date = date.format(DateTimeFormatter.ISO_DATE),
                 peakSunHours = MeasuredValue(MeasuredValue.roundToDecimals(peakSunHours), "hours"),
@@ -70,7 +83,8 @@ class OpenMeteoForecastClient(
                 peakIrradianceTime = peakTimeIso,
                 peakIrradiance = MeasuredValue(MeasuredValue.roundToDecimals(peakIrradiance), "Wh/m²"),
                 sunWindowStart = windowStart,
-                sunWindowEnd = windowEnd
+                sunWindowEnd = windowEnd,
+                weatherCondition = condition
             )
         }
 
@@ -91,6 +105,22 @@ class OpenMeteoForecastClient(
 
     private fun parseDate(isoTime: String): LocalDate =
         LocalDateTime.parse(isoTime).toLocalDate()
+
+    private fun mapWeatherCodeToCondition(code: Int): String {
+        return when (code) {
+            0 -> "sunshine" // Clear sky
+            1, 2 -> "partly cloudy" // Mainly clear, partly cloudy
+            3 -> "cloudy" // Overcast
+            45, 48 -> "fog" // Fog and depositing rime fog
+            51, 53, 55, 56, 57 -> "drizzle" // Drizzle: Light, moderate, and dense intensity
+            61, 63, 65, 66, 67 -> "rain" // Rain: Slight, moderate and heavy intensity
+            71, 73, 75, 77 -> "snow" // Snow fall: Slight, moderate, and heavy intensity
+            80, 81, 82 -> "rain showers" // Rain showers: Slight, moderate, and violent
+            85, 86 -> "snow showers" // Snow showers slight and heavy
+            95, 96, 99 -> "thunderstorm" // Thunderstorm: Slight or moderate
+            else -> "cloudy"
+        }
+    }
 }
 
 @Serializable
@@ -101,5 +131,6 @@ private data class OpenMeteoResponse(
 @Serializable
 private data class Hourly(
     val time: List<String> = emptyList(),
-    @SerialName("shortwave_radiation") val shortwaveRadiation: List<Double> = emptyList()
+    @SerialName("shortwave_radiation") val shortwaveRadiation: List<Double> = emptyList(),
+    @SerialName("weather_code") val weatherCode: List<Int> = emptyList()
 )

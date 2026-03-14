@@ -301,7 +301,8 @@ class SolarRoutesTest {
                                 peakIrradianceTime = "2026-03-12T12:00",
                                 peakIrradiance = MeasuredValue(MeasuredValue.roundToDecimals(500.0), "Wh/m²"),
                                 sunWindowStart = "2026-03-12T09:00",
-                                sunWindowEnd = "2026-03-12T15:00"
+                                sunWindowEnd = "2026-03-12T15:00",
+                                weatherCondition = "sunshine"
                             )
                         ),
                         panelWattage = request.panelWattage,

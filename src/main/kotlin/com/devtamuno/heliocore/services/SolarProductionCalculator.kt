@@ -35,15 +35,15 @@ class SolarProductionCalculator(private val defaultSystemLosses: Double = DEFAUL
         val annualEnergy = dailyEnergy * DAYS_PER_YEAR
 
         return SolarEstimateResponse(
-            systemCapacity = measured(roundToSingleDecimal(systemCapacityKw), "kW"),
-            peakSunHours = measured(roundToSingleDecimal(peakSunHours), "hours"),
-            dailyEnergy = measured(roundToSingleDecimal(dailyEnergy), "kWh"),
-            monthlyEnergy = measured(roundToSingleDecimal(monthlyEnergy), "kWh"),
-            annualEnergy = measured(roundToSingleDecimal(annualEnergy), "kWh")
+            systemCapacity = measured(roundToDecimals(systemCapacityKw), "kW"),
+            peakSunHours = measured(roundToDecimals(peakSunHours), "hours"),
+            dailyEnergy = measured(roundToDecimals(dailyEnergy), "kWh"),
+            monthlyEnergy = measured(roundToDecimals(monthlyEnergy), "kWh"),
+            annualEnergy = measured(roundToDecimals(annualEnergy), "kWh")
         )
     }
 
-    private fun roundToSingleDecimal(value: Double): Double = round(value * DECIMAL_SCALE) / DECIMAL_SCALE.toDouble()
+    private fun roundToDecimals(value: Double): Double = MeasuredValue.roundToDecimals(value)
 
     private fun measured(value: Double, unit: String) = MeasuredValue(value = value, unit = unit)
 
@@ -51,7 +51,6 @@ class SolarProductionCalculator(private val defaultSystemLosses: Double = DEFAUL
         const val DEFAULT_SYSTEM_LOSSES = 0.14
         const val DAYS_PER_MONTH = 30
         const val DAYS_PER_YEAR = 365
-        const val DECIMAL_SCALE = 10
         const val MIN_LAT = -90.0
         const val MAX_LAT = 90.0
         const val MIN_LON = -180.0

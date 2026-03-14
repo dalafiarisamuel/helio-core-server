@@ -2,6 +2,7 @@ package com.devtamuno.heliocore.integrations.pvwatts
 
 import com.devtamuno.heliocore.domain.ExternalServiceException
 import com.devtamuno.heliocore.domain.MeasuredValue
+import com.devtamuno.heliocore.domain.MonthlySolarData
 import com.devtamuno.heliocore.domain.SolarPotentialResponse
 import com.devtamuno.heliocore.domain.SolarEstimateRequest
 import com.devtamuno.heliocore.integrations.common.SolarDataProvider
@@ -74,10 +75,20 @@ class PvWattsClient(
             outputs.acMonthly.size
         )
 
+        val monthNames = listOf(
+            "January", "February", "March", "April", "May", "June",
+            "July", "August", "September", "October", "November", "December"
+        )
+
         return SolarPotentialResponse(
-            solradAnnual = MeasuredValue(outputs.solarRadAnnual, "kWh/m²/day"),
-            acMonthly = outputs.acMonthly.map { MeasuredValue(it, "kWh") },
-            acAnnual = MeasuredValue(outputs.acAnnual, "kWh"),
+            solradAnnual = MeasuredValue(MeasuredValue.roundToDecimals(outputs.solarRadAnnual), "kWh/m²/day"),
+            acMonthly = outputs.acMonthly.mapIndexed { index, value ->
+                MonthlySolarData(
+                    month = monthNames.getOrElse(index) { "Unknown" },
+                    data = MeasuredValue(MeasuredValue.roundToDecimals(value), "kWh")
+                )
+            },
+            acAnnual = MeasuredValue(MeasuredValue.roundToDecimals(outputs.acAnnual), "kWh"),
             panelWattage = request.panelWattage,
             panelCount = request.panelCount
         )

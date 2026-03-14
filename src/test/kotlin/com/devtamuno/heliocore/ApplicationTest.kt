@@ -5,12 +5,13 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.serialization.kotlinx.json.json
+import com.devtamuno.heliocore.domain.MeasuredValue
+import com.devtamuno.heliocore.domain.MonthlySolarData
+import com.devtamuno.heliocore.domain.SolarPotentialResponse
+import com.devtamuno.heliocore.domain.SolarEstimateRequest
 import com.devtamuno.heliocore.routes.configureRoutes
 import com.devtamuno.heliocore.services.SolarProductionCalculator
 import com.devtamuno.heliocore.integrations.common.SolarDataProvider
-import com.devtamuno.heliocore.domain.MeasuredValue
-import com.devtamuno.heliocore.domain.SolarPotentialResponse
-import com.devtamuno.heliocore.domain.SolarEstimateRequest
 import com.devtamuno.heliocore.auth.AuthService
 import com.devtamuno.heliocore.auth.UserRepository
 import com.devtamuno.heliocore.config.JwtSettings
@@ -46,7 +47,7 @@ class ApplicationTest {
                 ): SolarPotentialResponse =
                     SolarPotentialResponse(
                         solradAnnual = MeasuredValue(5.0, "kWh/m²/day"),
-                        acMonthly = emptyList(),
+                        acMonthly = listOf(MonthlySolarData("January", MeasuredValue(0.0, "kWh"))),
                         acAnnual = MeasuredValue(0.0, "kWh"),
                         panelWattage = request.panelWattage,
                         panelCount = request.panelCount

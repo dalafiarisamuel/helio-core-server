@@ -187,9 +187,9 @@ class SolarRoutesTest {
                     userId: String?
                 ): SolarPotentialResponse =
                     SolarPotentialResponse(
-                        solradAnnual = MeasuredValue(5.1, "kWh/m²/day"),
-                        acMonthly = listOf(MeasuredValue(400.0, "kWh")),
-                        acAnnual = MeasuredValue(4800.0, "kWh"),
+                        solradAnnual = MeasuredValue(MeasuredValue.roundToDecimals(5.1), "kWh/m²/day"),
+                        acMonthly = listOf(MonthlySolarData("January", MeasuredValue(MeasuredValue.roundToDecimals(400.0), "kWh"))),
+                        acAnnual = MeasuredValue(MeasuredValue.roundToDecimals(4800.0), "kWh"),
                         panelWattage = request.panelWattage,
                         panelCount = request.panelCount
                     )
@@ -219,7 +219,8 @@ class SolarRoutesTest {
         assertEquals(HttpStatusCode.OK, response.status)
         val body: SolarPotentialResponse = response.body()
         assertEquals("kWh/m²/day", body.solradAnnual.unit)
-        assertTrue(body.acMonthly.first().value > 0)
+        assertEquals("January", body.acMonthly.first().month)
+        assertTrue(body.acMonthly.first().data.value > 0)
         assertEquals(1000.0, body.panelWattage)
         assertEquals(1, body.panelCount)
     }
@@ -259,10 +260,10 @@ class SolarRoutesTest {
                         forecasts = listOf(
                             SolarForecastEntry(
                                 date = "2026-03-12",
-                                peakSunHours = MeasuredValue(5.0, "hours"),
-                                expectedEnergy = MeasuredValue(10.0, "kWh"),
+                                peakSunHours = MeasuredValue(MeasuredValue.roundToDecimals(5.0), "hours"),
+                                expectedEnergy = MeasuredValue(MeasuredValue.roundToDecimals(10.0), "kWh"),
                                 peakIrradianceTime = "2026-03-12T12:00",
-                                peakIrradiance = MeasuredValue(500.0, "Wh/m²"),
+                                peakIrradiance = MeasuredValue(MeasuredValue.roundToDecimals(500.0), "Wh/m²"),
                                 sunWindowStart = "2026-03-12T09:00",
                                 sunWindowEnd = "2026-03-12T15:00"
                             )
@@ -321,9 +322,9 @@ class SolarRoutesTest {
                     userId: String?
                 ): SolarPotentialResponse =
                     SolarPotentialResponse(
-                        solradAnnual = MeasuredValue(5.1, "kWh/m²/day"),
-                        acMonthly = listOf(MeasuredValue(400.0, "kWh")),
-                        acAnnual = MeasuredValue(4800.0, "kWh"),
+                        solradAnnual = MeasuredValue(MeasuredValue.roundToDecimals(5.1), "kWh/m²/day"),
+                        acMonthly = listOf(MonthlySolarData("January", MeasuredValue(MeasuredValue.roundToDecimals(400.0), "kWh"))),
+                        acAnnual = MeasuredValue(MeasuredValue.roundToDecimals(4800.0), "kWh"),
                         panelWattage = request.panelWattage,
                         panelCount = request.panelCount
                     )

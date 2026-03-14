@@ -123,7 +123,11 @@ Run the app:
     ```json
     {
       "solrad_annual": { "value": 5.63, "unit": "kWh/m2/day" },
-      "ac_monthly": [ { "value": 130.5, "unit": "kWh" }, ... ],
+      "ac_monthly": [
+        { "month": "January", "data": { "value": 130.5, "unit": "kWh" } },
+        { "month": "February", "data": { "value": 125.2, "unit": "kWh" } },
+        "... (truncated for brevity)"
+      ],
       "ac_annual": { "value": 1540.2, "unit": "kWh" },
       "panel_wattage": 1000.0,
       "panel_count": 1

@@ -33,7 +33,7 @@ class SolarProductionCalculatorTest {
     }
 
     @Test
-    fun `calculate applies default system losses and rounds to single decimal`() {
+    fun `calculate applies default system losses and rounds to 3 decimals`() {
         val calculatorWithLosses = SolarProductionCalculator() // default 14% losses
         val request = SolarEstimateRequest(
             latitude = 5.0,

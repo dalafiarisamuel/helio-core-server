@@ -44,3 +44,11 @@ data class UpdateUserRequest(
     @SerialName("first_name") val firstName: String? = null,
     @SerialName("last_name") val lastName: String? = null
 )
+
+@Serializable
+data class SeedResponse(
+    val message: String,
+    val user: String,
+    val password: String,
+    @SerialName("configs_added") val configsAdded: Int
+)

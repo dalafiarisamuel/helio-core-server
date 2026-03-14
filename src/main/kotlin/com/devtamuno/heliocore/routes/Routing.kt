@@ -27,6 +27,11 @@ fun Application.configureRoutes(
             healthRoutes()
             solarRoutes(calculator, solarDataProvider, solarForecastProvider)
             solarConfigRoutes(solarConfigService)
+
+            // Dev only routes
+            if (developmentMode) {
+                devRoutes(authService, userRepository, solarConfigService)
+            }
         }
     }
 }

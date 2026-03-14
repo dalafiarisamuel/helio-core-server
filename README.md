@@ -123,11 +123,11 @@ Run the app:
     ```json
     {
       "solrad_annual": { "value": 5.63, "unit": "kWh/m2/day" },
-      "ac_monthly": [
-        { "month": "January", "data": { "value": 130.5, "unit": "kWh" } },
-        { "month": "February", "data": { "value": 125.2, "unit": "kWh" } },
-        "... (truncated for brevity)"
-      ],
+      "ac_monthly": {
+        "january": { "data": { "value": 130.5, "unit": "kWh" } },
+        "february": { "data": { "value": 125.2, "unit": "kWh" } },
+        "...": "..."
+      },
       "ac_annual": { "value": 1540.2, "unit": "kWh" },
       "panel_wattage": 1000.0,
       "panel_count": 1
@@ -146,7 +146,8 @@ Run the app:
           "peak_irradiance_time": "2026-03-14T12:00:00",
           "peak_irradiance": { "value": 950.0, "unit": "W/m2" },
           "sun_window_start": "07:00",
-          "sun_window_end": "18:30"
+          "sun_window_end": "18:30",
+          "weather_condition": "sunshine"
         }
       ],
       "panel_wattage": 450.0,
@@ -235,6 +236,18 @@ curl -X POST http://localhost:8080/solar/forecast \
 ## Development
 - Build: `./gradlew build`
 - Test: `./gradlew test`
+
+### Development Data Seeding
+To quickly set up a test user with solar configurations in a development environment:
+1. Ensure the server is running (it defaults to development mode when using `./gradlew run` without production flags).
+2. Run the seeding script:
+   ```bash
+   ./seed-dev-data.sh
+   ```
+3. This will create:
+   - **User:** `dev@example.com`
+   - **Password:** `password123`
+   - **Configs:** Two sample solar configurations (Los Angeles and New York).
 
 ## Future Improvements
 - Configurable forecast horizon and loss factors.
